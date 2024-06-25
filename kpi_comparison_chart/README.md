@@ -41,3 +41,20 @@ To create and test the application, this tutorial uses a Vite project setup.
      $ npm create vite@latest
      ```
 3. Configure the project name and development framework for your chart application. In this tutorial, we will use the Vanilla framework with Javascript.
+   
+     ```bash
+     ✔ Project name: … kpi comparison chart
+     ✔ Package name: … kpi-comparison-chart
+     ✔ Select a framework: › Vanilla
+     ✔ Select a variant: › Javascript
+     ```
+5. Initialize your application.
+
+     ```bash
+     npm install
+     npm run dev
+     ```
+
+6. Go to the localhost link and check if the following page shows up.
+
+     ![initial-setup](assets/images/initial-setup.png)
