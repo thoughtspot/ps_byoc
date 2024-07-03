@@ -5,11 +5,12 @@ import {
 } from '@thoughtspot/ts-chart-sdk';
 import _ from 'lodash';
 
+
+// variable numberFormatter is used to apply the necessary format to the number ex, Thousands (K), Millions (M)
 const numberFormatter = (value, format = '') => {
     let formattedValue = '';
 
     if (value > 1000000000 || value < -1000000000) {
-        // formattedValue = (value / 1000000000).toFixed(2) + 'B';
         formattedValue = userNumberFormatter((value / 1000000000),format) + 'B';
     } else if (value > 1000000 || value < -1000000) {
         formattedValue = userNumberFormatter((value / 1000000),format) + 'M';
@@ -23,19 +24,22 @@ const numberFormatter = (value, format = '') => {
 };
 
 
-let userNumberFormat = '0,0.00'; // Default format if not specified by the user
+let userNumberFormat = '0,0'; // Default format if not specified by the user
 
+// userNumberFormatter is used to apply the number format which has been given by the user or use the default number format
 const userNumberFormatter = (value, format) => {
     console.log("Inside numberFormatter function. Number Format: " + format);
     return numeral(value).format(format); // Use numeral.js for formatting
 };
 
+// fuction getDataForColumn finds the index of a specified column in the dataset and returns an array of data values for that column
 function getDataForColumn(column, dataArr) {
     const idx = _.findIndex(dataArr.columns, colId => column.id === colId);
     const data = _.map(dataArr.dataValue, row => row[idx]);
     return data;
 }
 
+// The calculateKpiValues function computes the main KPI value and the changes in other measures from the chart model's data
 function calculateKpiValues(chartModel) {
     const dataArr = chartModel.data?.[0]?.data ?? [];
     const measureColumns = _.filter(chartModel.columns, col => col.type === ColumnType.MEASURE);
@@ -57,6 +61,8 @@ function calculateKpiValues(chartModel) {
     return { mainKpiValue, measures };
 }
 
+// The updateKpiContainer function updates the HTML elements to display the main KPI value and a list of measure changes, formatting the values
+// according to the specified format. It dynamically creates and appends elements to show the change percentages and values for each measure.
 function updateKpiContainer(measures, mainKpiValue, format) {
     console.log("Inside updateKpiContainer function. Number Format: " + format);
     document.getElementById('mainKpiValue').innerText = numberFormatter(mainKpiValue, format);
@@ -75,6 +81,9 @@ function updateKpiContainer(measures, mainKpiValue, format) {
     });
 }
 
+
+// The render function retrieves the chart model from the context, calculates KPI values, and updates the KPI container to display these values,
+// formatted according to the chart's visual properties.
 async function render(ctx) {
     console.log("Inside render function.");
     const chartModel = await ctx.getChartModel();
@@ -82,6 +91,9 @@ async function render(ctx) {
     updateKpiContainer(kpiValues.measures, kpiValues.mainKpiValue, chartModel.visualProps.numberFormat);
 }
 
+
+// The renderChart function manages the rendering process by emitting start and complete events, calling the render function, 
+// and handling any errors that occur during rendering. This is the first function that is called. 
 const renderChart = async (ctx) => {
     try {
 
@@ -102,6 +114,7 @@ const renderChart = async (ctx) => {
     const ctx = await getChartContext({
         
         getDefaultChartConfig: (chartModel) => {
+            console.log("Inside getDefaultChartConfig")
             const cols = chartModel.columns;
             const measureColumns = _.filter(cols, col => col.type === ColumnType.MEASURE);
             const axisConfig = {
@@ -113,13 +126,14 @@ const renderChart = async (ctx) => {
                     },
                     {
                         key: 'y',
-                        columns: measureColumns,
+                        columns: measureColumns.length > 1 ? measureColumns.slice(1) : [],
                     },
                 ],
             };
             return [axisConfig];
         },
         getQueriesFromChartConfig: (chartConfig) => {
+            console.log("Inside getQueriesFromChartConfig")
             const queries = chartConfig.map(config =>
                 _.reduce(config.dimensions, (acc, dimension) => ({
                     queryColumns: [...acc.queryColumns, ...dimension.columns],
@@ -158,7 +172,7 @@ const renderChart = async (ctx) => {
                 {
                     key: 'numberFormat',
                     type: 'text',
-                    defaultValue: '0,0.00', // Default number format
+                    defaultValue: '0,0', // Default number format
                     label: 'Number Format',
                 }
             ],
