@@ -93,7 +93,7 @@ async function render(ctx) {
 
 
 // The renderChart function manages the rendering process by emitting start and complete events, calling the render function, 
-// and handling any errors that occur during rendering. This is the first function that is called. 
+// and handling any errors that occur during rendering.  
 const renderChart = async (ctx) => {
     try {
 
@@ -132,6 +132,8 @@ const renderChart = async (ctx) => {
             };
             return [axisConfig];
         },
+        //getQueriesFromChartConfig is the first function that is called.The getQueriesFromChartConfig function transforms the chart 
+        //configuration into query configurations by aggregating columns from each dimension.
         getQueriesFromChartConfig: (chartConfig) => {
             console.log("Inside getQueriesFromChartConfig")
             const queries = chartConfig.map(config =>
