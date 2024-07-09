@@ -17,7 +17,7 @@ const numberFormatter = (value, format = '') => {
     } else if (value > 1000 || value < -1000) {
         formattedValue = userNumberFormatter((value / 1000),format) + 'K';
     } else {
-        formattedValue = value.toFixed(2);
+        formattedValue = userNumberFormatter((value),format);
     }
 
     return  formattedValue; // Apply user-defined number format
@@ -182,7 +182,7 @@ const renderChart = async (ctx) => {
         onPropChange: (propKey, propValue) => {
             // console.log("Inside onPropChange. Number Format: " + userNumberFormat);
             if (propKey === 'numberFormat') {
-                userNumberFormat = propValue || '0,0.00'; // Use the default format if none provided
+                userNumberFormat = propValue || '0,0'; // Use the default format if none provided
                 
                 renderChart(ctx ); // Re-render the chart with the new format
             }
