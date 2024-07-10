@@ -123,7 +123,7 @@ Ensure that the getDefaultChartConfig method is included in chartContext to defi
 To render the chart, the default configuration is required.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Default%20Chart%20Config.png" width=950 height=550 align="center" alt="defaultchartConfig()" />
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Default%20Chart%20Config.png" width=950 height=450 align="center" alt="defaultchartConfig()" />
 </p>
 
 
@@ -134,7 +134,7 @@ This method defines the data query that is required to fetch the data from Thoug
 This example maps all the columns in the configuration as an array of columns in the arguments.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/getQueriesfromChartConfig.png" width=950 height=300 align="center" alt="defaultchartConfig()" />
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/getQueriesfromChartConfig.png" width=950 height=200 align="center" alt="defaultchartConfig()" />
 </p>
 
 #### renderChart (Doc)
@@ -150,7 +150,7 @@ This renderChart (Doc) function is required to render the chart implemented in y
 The data model is unique to every chart. It defines how each point will be plotted on the chart. This example shows how the model for kpi-comparison-chart is used to get the main KPI and comparison measures 
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Chart%20Model.png" width=950 height=550 align="center" alt="ChartModel()" />
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Chart%20Model.png" width=950 height=450 align="center" alt="ChartModel()" />
 </p>
 
 
