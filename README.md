@@ -52,11 +52,11 @@ Before you begin, check for the following requirements:
 
 ## Install lodash
 
-npm install lodash
+    npm install lodash
 
 ## Install the SDK
 
-npm install --save @thoughtspot/ts-chart-sdk
+    npm install --save @thoughtspot/ts-chart-sdk
 
 ## Render a chart on your local environment
 
