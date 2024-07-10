@@ -58,7 +58,7 @@ You can host the code on a server to make it available for use. To deploy your c
 5. After logging in to Vercel using your GitHub account, select the correct repository that has the JavaScript code and import the repository.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Select%20Repository.png" width=650 height=350 align="center" alt="Select Repository" />   
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Select%20Repository.png" width=650 height=250 align="center" alt="Select Repository" />   
     
     
 6. Configure the project and deploy the code.
