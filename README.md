@@ -2,6 +2,8 @@
     <img src="https://raw.githubusercontent.com/thoughtspot/visual-embed-sdk/main/static/doc-images/images/TS-Logo-black-no-bg.svg" width=120 align="center" alt="ThoughtSpot" />
 </p>
 
+![test!](https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/TS%20Github%20Repository.png)
+
 <br/>
 
 # Custom Charts (BYOC) – Deployment Guide
