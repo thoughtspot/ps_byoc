@@ -1,4 +1,11 @@
-# BYOC Implementation - Overview and Working Details
+<p align="center">
+    <img src="https://raw.githubusercontent.com/thoughtspot/visual-embed-sdk/main/static/doc-images/images/TS-Logo-black-no-bg.svg" width=120 align="center" alt="ThoughtSpot" />
+</p>
+
+<br/>
+
+
+# BYOC Implementation - Overview and Working Details <br/>
 
 Bring Your Own Charts (BYOC) is a framework in ThoughtSpot to implement your own custom charts leveraging the ThoughtSpot charts SDK. Custom charts can be created to support the functionality not available using the out-of-the-box chart options in ThoughtSpot. Developers can use JavaScript or TypeScript to develop these custom charts. Charts from popular libraries such as HighCharts, D3, etc., can be used as reference and modified to work with TS Charts SDK.
 
