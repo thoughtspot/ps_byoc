@@ -74,7 +74,7 @@ To implement the chart code in your application, complete these steps:
 - **Manifest.json (optional)** - The manifest.json file provides metadata for web applications, specifying how they should behave when installed on a device or accessed in a browser.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Repository%20files.png" width=650 height=450 align="center" alt="Files" />
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Repository%20files.png" width=650 height=330 align="center" alt="Files" />
 </p>
 
 
@@ -97,8 +97,8 @@ To initialize the chart context, call *getChartContext()*:
 
 NOTE: For more information about the chart context component, refer to the following documentation resources:
 
-- [https://ts-chart-sdk-docs.vercel.app/types/CustomChartContextProps.html]
-- [https://github.com/thoughtspot/ts-chart-sdk/blob/main/src/main/custom-chart-context.ts#L40]
+- [https://ts-chart-sdk-docs.vercel.app/types/CustomChartContextProps.html](https://ts-chart-sdk-docs.vercel.app/types/CustomChartContextProps.html)
+- [https://github.com/thoughtspot/ts-chart-sdk/blob/main/src/main/custom-chart-context.ts#L40](https://github.com/thoughtspot/ts-chart-sdk/blob/main/src/main/custom-chart-context.ts#L40)
 
 
 The custom chart context component must include the following mandatory properties to function:
@@ -107,7 +107,7 @@ The custom chart context component must include the following mandatory properti
 - getQueriesFromChartConfig (Doc)
 - renderChart (Doc)
 
-### getDefaultChartConfig (Doc)
+#### getDefaultChartConfig (Doc)
 
 This function takes in a ChartModel object and returns a well-formed point configuration definition.
 
@@ -120,7 +120,7 @@ To render the chart, the default configuration is required.
 </p>
 
 
-### getQueriesFromChartConfig (Doc)
+#### getQueriesFromChartConfig (Doc)
 
 This method defines the data query that is required to fetch the data from ThoughtSpot to render the chart. For most use cases, you do not require the data outside of the columns listed in your chart.
 
@@ -130,7 +130,7 @@ This example maps all the columns in the configuration as an array of columns in
     <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/getQueriesfromChartConfig.png" width=950 height=300 align="center" alt="defaultchartConfig()" />
 </p>
 
-### renderChart (Doc)
+#### renderChart (Doc)
 
 This renderChart (Doc) function is required to render the chart implemented in your code. This function ensures that every time chartContext tries to re-render the chart due to the changes in data or chart model, the chart rendered in your application is updated.
 
@@ -170,7 +170,7 @@ Here’s the full code to implement the [kpi-comparison-chart](https://github.co
 
 If the chart creation is successful, you can host it on a server and make it available for use:
 
-To deploy your charts, you can use Vercel, Netlify, or any server that can render an HTML page. For information, see deployment guide.
+To deploy your charts, you can use Vercel, Netlify, or any server that can render an HTML page. For information, see [deployment guide](https://docs.google.com/document/d/1DDJPqAwdfkCfNn49oHrH26YI1-idLPgH5409PsyWNAY/edit?usp=sharing).
 
 
 ## Additional Resources
