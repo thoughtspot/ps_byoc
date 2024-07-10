@@ -2,8 +2,6 @@
     <img src="https://raw.githubusercontent.com/thoughtspot/visual-embed-sdk/main/static/doc-images/images/TS-Logo-black-no-bg.svg" width=120 align="center" alt="ThoughtSpot" />
 </p>
 
-![test!](https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/TS%20Github%20Repository.png)
-
 <br/>
 
 # Custom Charts (BYOC) – Deployment Guide
@@ -12,9 +10,14 @@ You can now use custom charts in ThoughtSpot. To deploy custom charts in Thought
 
 ## Access the Code
 
-Access the code from the [ThoughtSpot GitHub repository](https://github.com/thoughtspot/ts-chart-sdk).
+Access the code from the [ThoughtSpot GitHub repository](https://github.com/thoughtspot/ps_byoc/tree/main).
 
 Click on `kpi_comparison_chart`.
+
+
+<p align="center">
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/TS%20Github%20Repository.png" width=160 align="center" alt="TS Github" />
+
 
 ## Download the Necessary Files
 
