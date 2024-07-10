@@ -1,103 +1,179 @@
+# BYOC Implementation - Overview and Working Details
+
+Bring Your Own Charts (BYOC) is a framework in ThoughtSpot to implement your own custom charts leveraging the ThoughtSpot charts SDK. Custom charts can be created to support the functionality not available using the out-of-the-box chart options in ThoughtSpot. Developers can use JavaScript or TypeScript to develop these custom charts. Charts from popular libraries such as HighCharts, D3, etc., can be used as reference and modified to work with TS Charts SDK.
+
+## Get Started
+
+This tutorial demonstrates how to use a KPI Comparison Chart using JavaScript.
+
+Before you begin, check for the following requirements:
+
+- Access to a ThoughtSpot Cloud application instance
+- A Development Environment (IDE) for building custom charts
+- Working knowledge of JavaScript or TypeScript
+- Familiarity with charting libraries such as Highcharts
+- Knowledge of the chart type
+
+## Set Up Your Environment for BYOC (Bring Your Own Code)
+
+### Prepare Your Development Environment
+
+1. **Install Node.js and npm** - Node.js and npm (Node Package Manager) are required for most JavaScript-based projects.
+
+### Set Up Your Code Repository
+
+1. **Initialize a Git Repository:**
+   - Git is the most widely used version control system.
+   - **Install Git:**
+     - Download Git from the [Git website](https://git-scm.com/downloads).
+     - Install Git by following the on-screen instructions.
+
+### Set Up Dependencies and Environment
+
+1. **Create a `package.json` File for Node.js Projects.** This file manages dependencies and scripts for your project.
+   
+2. **Set Up Your Code Repository**
+    - Initialize a Git Repository:
+    - Git is the most widely used version control system.
+    **Install Git:**
+    - Download Git from the Git website.
+    - Install Git by following the on-screen instructions.
+
+3. **Set Up Dependencies and Environment**
+    - Create a package.json File for Node.js Projects. This file manages dependencies and scripts for your project.
+
+
+## Install lodash
+
+npm install lodash
+
+## Install the SDK
+
+npm install --save @thoughtspot/ts-chart-sdk
+
+## Render a chart on your local environment
+
+Render a chart in the application created from the preceding steps.
+This tutorial uses JavaScript code to create a [Custom KPI comparison chart](https://github.com/thoughtspot/ps_byoc).  
+
+## Implement the Chart Code
+
+To implement the chart code in your application, complete these steps:
+
+1. Visit the Thoughtspot repository which has the code for [kpi-comparison-chart](https://github.com/thoughtspot/ps_byoc). 
+
+2. Download the repository from Git to a local repository. 
+**You can directly use the files in the repository to create the kpi-comparison-chart or you can build a chart of your own using JavaScript.**
+
+3. You will need the following main components in your Github repository to generate a custom chart 
+
+- **main.js** - This file contains your main JavaScript code. This will be the source code on which the custom chart runs.
+- **Index.html** - This file serves as the entry point for your web application, loading essential resources and defining the initial structure for dynamic content rendering.
+- **Style.css** - This file is used to define the visual presentation (styles) of the HTML elements in your web application, ensuring a consistent and visually appealing layout.
+- **Package.json (optional)** - The package.json file manages project metadata, dependencies, and scripts in a Node.js project.
+- **Manifest.json (optional)** - The manifest.json file provides metadata for web applications, specifying how they should behave when installed on a device or accessed in a browser.
+
 <p align="center">
-    <img src="https://raw.githubusercontent.com/thoughtspot/visual-embed-sdk/main/static/doc-images/images/TS-Logo-black-no-bg.svg" width=250 height=250 align="center" alt="ThoughtSpot" />
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Repository%20files.png" width=650 height=450 align="center" alt="Files" />
 </p>
 
-<br/>
 
-# Custom Charts (BYOC) – Deployment Guide
+There are 3 main components in your JavaScript/TypeScript code that allow your custom chart elements to interact with data from TS using the chart SDK. They are as follows:
 
-You can now use custom charts in ThoughtSpot. To deploy custom charts in ThoughtSpot, please follow the below steps:
+1. Initialize the Chart Context
+2. Create a data model from input data
+3. Plug data into the Charts datasets
 
-## Access the Code
+## Initialize the Chart Context
 
-Access the code from the [ThoughtSpot GitHub repository](https://github.com/thoughtspot/ps_byoc/tree/main).
+Chart Context is the main context object that helps in orchestrating ThoughtSpot APIs to render charts. It also acts as a core central point of all interactions on the charts.
 
-Click on `kpi_comparison_chart`.
-
-
-<p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/TS%20Github%20Repository.png" width=600 height=400 align="center" alt="TS Github" />
-
-
-## Download the Necessary Files
-
-Download the following files:
-- `index.html`
-- `main.js`
-- `manifest.json`
-- `package.json`
-- `style.css`
+To initialize the chart context, call *getChartContext()*:
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Files%20to%20Download.png" width=800 height=450 align="center" alt="ThoughtSpot" />
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Chart%20Context.png" width=950 height=550 align="center" alt="getchartContext()" />
+</p>
 
-    
-## Create a Repository on CVS GitHub
 
-Create a repository on CVS GitHub named `your_repository_name`.
+NOTE: For more information about the chart context component, refer to the following documentation resources:
 
-## Deploying the Code
+- [https://ts-chart-sdk-docs.vercel.app/types/CustomChartContextProps.html]
+- [https://github.com/thoughtspot/ts-chart-sdk/blob/main/src/main/custom-chart-context.ts#L40]
 
-You can host the code on a server to make it available for use. To deploy your charts, you can use Vercel, Netlify, or any server that can render an HTML page.
 
-### Example: Deploy on Vercel
+The custom chart context component must include the following mandatory properties to function:
 
-1. Navigate to the [Vercel application](https://vercel.app/).
-2. Click on **Start Deploying**.
+- getDefaultChartConfig (Doc)
+- getQueriesFromChartConfig (Doc)
+- renderChart (Doc)
 
-<p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Vercel%20Home%20Page.png" width=500 height=350 align="center" alt="Vercel Home Page" />
+### getDefaultChartConfig (Doc)
 
-3. To deploy a new project, import an existing Git repository. Select **Continue with GitHub**.
+This function takes in a ChartModel object and returns a well-formed point configuration definition.
 
-<p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Vercel%20--%3E%20Github.png" width=300 height=250 align="center" alt="Vercel --> GitHub" />
+Ensure that the getDefaultChartConfig method is included in chartContext to define the configuration of the columns that are required to map the dataset into the chart. We assume that the order of the column is maintained in the chartModel.
 
-4. Provide your GitHub login credentials to continue to Vercel using your GitHub account.
-   
-5. After logging in to Vercel using your GitHub account, select the correct repository that has the JavaScript code and import the repository.
+To render the chart, the default configuration is required.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Select%20Repository.png" width=650 height=250 align="center" alt="Select Repository" />   
-    
-    
-6. Configure the project and deploy the code.
-
-   <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Configure%20and%20Deploy.png" width=600 height=550 align="center" alt="Configure and Deploy" /> 
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Default%20Chart%20Config.png" width=950 height=550 align="center" alt="defaultchartConfig()" />
+</p>
 
 
-Once the code is deployed, Vercel will provide a URL where your service is hosted. Visit this URL to ensure your application is running as expected.
+### getQueriesFromChartConfig (Doc)
 
-## Using the URL to Set Up Custom Chart in ThoughtSpot
+This method defines the data query that is required to fetch the data from ThoughtSpot to render the chart. For most use cases, you do not require the data outside of the columns listed in your chart.
 
-1. Ensure that Custom Charts is enabled on your cluster.
-2. Navigate to the **Admin Page** on your ThoughtSpot cluster.
+This example maps all the columns in the configuration as an array of columns in the arguments.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/TS%20Admin%20Tab.png" width=800 height=100 align="center" alt="Admin Tab" /> 
-   
-3. Click on **Chart Customisation → Custom Charts → Add Chart**.
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/getQueriesfromChartConfig.png" width=950 height=300 align="center" alt="defaultchartConfig()" />
+</p>
 
-   <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Chart%20Customisation%20Window.png" width=970 height=600 align="center" alt="Chart customisation Window" /> 
+### renderChart (Doc)
 
-4. In the pop-up, fill in the required information:
-    - **Name**: Name of the Custom Chart
-    - **Description** (optional)
-    - **Application URL**: URL obtained after deploying in Vercel
-    - **Icon URL** (optional): Icon image for the Custom Chart
-    - **Author Name** (optional)
-    - **Author Email** (optional)
-    - **Author Organization** (optional)
+This renderChart (Doc) function is required to render the chart implemented in your code. This function ensures that every time chartContext tries to re-render the chart due to the changes in data or chart model, the chart rendered in your application is updated.
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Chart%20Customisation%20Details.png" width=500 height=500 align="center" alt="Chart customisation details" /> 
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Render.png" width=950 height=700 align="center" alt="Render()" />
+</p>
 
-5. Click **Add Chart**.
-   
-Your new chart will appear on the Custom Charts page and will be available for use when creating a chart in ThoughtSpot.
+## Create a Data Model from input data
+
+The data model is unique to every chart. It defines how each point will be plotted on the chart. This example shows how the model for kpi-comparison-chart is used to get the main KPI and comparison measures 
 
 <p align="center">
-    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Custom%20KPI%20comparison%20Chart.png" width=950 height=650 align="center" alt="KPI comparison Chart" /> 
+    <img src="https://github.com/thoughtspot/ps_byoc/blob/main/kpi_comparison_chart/images/Chart%20Model.png" width=950 height=550 align="center" alt="ChartModel()" />
+</p>
 
+
+## Plug data into the Chart datasets
+
+Use the data model created from the above function and plug the values into the Chart configuration to render the chart.
+
+Create a data model object.
+In your renderChart code, add the following lines:
+
+    - const chartModel = await ctx.getChartModel(); 
+
+The command const chartModel = await ctx.getChartModel() is an asynchronous function call that retrieves the current chart model from the context object (ctx). This chart model contains the data, configuration, and properties of the chart that is being rendered. 
+
+
+    - const kpiValues = calculateKpiValues(chartModel);
+
+The command const kpiValues = calculateKpiValues(chartModel) calls the calculateKpiValues function, passing the chartModel as an argument, and assigns the result to the kpiValues constant.
+
+
+Here’s the full code to implement the [kpi-comparison-chart](https://github.com/thoughtspot/ps_byoc/tree/main/kpi_comparison_chart). 
+
+## Deploy your chart
+
+If the chart creation is successful, you can host it on a server and make it available for use:
+
+To deploy your charts, you can use Vercel, Netlify, or any server that can render an HTML page. For information, see deployment guide.
+
+
+## Additional Resources
+- [BYOC Tutorial](https://github.com/thoughtspot/ts-chart-sdk)
+- [High Chart Demo Link](https://www.highcharts.com/demo/gantt/progress-indicator)
+- [JSFiddle Link](https://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/master/samples/gantt/demo/progress-indicator)
