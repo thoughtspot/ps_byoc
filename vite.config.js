@@ -6,6 +6,7 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 kpi_comparison_chart: resolve(__dirname, 'kpi_comparison_chart/index.html'),
+                main: resolve(__dirname, 'index.html'),
             }
         }
     }
