@@ -61,7 +61,7 @@ function calculateKpiValues(chartModel) {
   const mainKpiColumn = chartModel?.config?.chartConfig[0]?.dimensions?.find(
     (it) => it.key === 'x'
   );
-  
+
   const mainKpiValue = _.sum(
     getDataForColumn(mainKpiColumn.columns[0], dataArr)
   );
@@ -74,7 +74,7 @@ function calculateKpiValues(chartModel) {
   const measures = comparisonMeasures.map((col) => {
     const value = _.sum(getDataForColumn(col, dataArr));
     const change =
-      mainKpiValue !== 0 ? ((value - mainKpiValue) / Math.abs(mainKpiValue)) * 100 : 0;
+      mainKpiValue !== 0 ? ((mainKpiValue - value) / Math.abs(value)) * 100 : 0;
     return {
       label: col.name,
       value,
@@ -95,10 +95,11 @@ function updateKpiContainer(measures, mainKpiValue, format) {
   measures.forEach((measure) => {
     const changeClass = measure.change > 0 ? 'kpi-positive' : 'kpi-negative';
     const arrow = measure.change > 0 ? '↑' : '↓';
+    const displayChange = Math.abs(measure.change).toFixed(1); // Remove negative sign
     const measureDiv = document.createElement('div');
     measureDiv.classList.add('kpi-measure');
     measureDiv.innerHTML = `
-            <span class="${changeClass}">${arrow} ${measure.change.toFixed(1)}%</span>
+            <span class="${changeClass}">${arrow} ${displayChange}%</span>
             <span class="comparisonKPIAbsoluteValue">(${numberFormatter(
               measure.value,
               format
