@@ -16,12 +16,15 @@ import {
     getChartContext,
     Query,
 } from '@thoughtspot/ts-chart-sdk';
+import HighchartsCustomEvents from 'highcharts-custom-events';
 
 // Initialize Highcharts Treemap, Heatmap, Exporting, and Offline Exporting modules
 Exporting(Highcharts);
 OfflineExporting(Highcharts); // Initialize offline exporting
 Treemap(Highcharts);
 Heatmap(Highcharts);
+HighchartsCustomEvents(Highcharts);
+
 
 // Extend Highcharts to include tooltipData
 declare module 'highcharts' {
@@ -193,6 +196,8 @@ function render(ctx: CustomChartContext) {
         const minColorValue = Math.min(...dataModel.values.map(d => d.colorValue));
         const maxColorValue = Math.max(...dataModel.values.map(d => d.colorValue));
 
+
+        
         const chartInstance = Highcharts.chart({
             chart: {
                 renderTo: 'chart',
@@ -200,6 +205,34 @@ function render(ctx: CustomChartContext) {
                 events: {
                     load: function () {
                         console.log("Chart loaded successfully");
+
+                        // Add right-click (context menu) event listener
+                        this.container.addEventListener('contextmenu', function(event) {
+                            // Prevent the default browser right-click menu
+                            event.preventDefault();
+
+                            // Create a PointerEvent from MouseEvent
+                            const pointerEvent = new PointerEvent('pointerdown', {
+                                clientX: event.clientX,
+                                clientY: event.clientY,
+                                pointerType: 'mouse',
+                            });
+
+                            const clickedPoint = chartInstance.series[0].searchPoint(pointerEvent, true); // Search for the clicked point
+                            if (clickedPoint) {
+                                // Trigger the ThoughtSpot context menu here
+                                ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
+                                    event: getParsedEvent(event),
+                                    clickedPoint: {
+                                        tuple: [
+                                            { columnId: configDimensions?.[0]?.columns?.[0]?.id, value: clickedPoint.name },
+                                            { columnId: configDimensions?.[1]?.columns?.[0]?.id, value: clickedPoint.value },
+                                            { columnId: configDimensions?.[2]?.columns?.[0]?.id, value: clickedPoint.options.colorValue }
+                                        ],
+                                    },
+                                });
+                            }
+                        });
                     }
                 }
             },
@@ -213,42 +246,54 @@ function render(ctx: CustomChartContext) {
                 dataLabels: {
                     enabled: true,
                     align: 'center',
-                    verticalAlign: 'middle',
                     useHTML: false,  // SVG rendering, so keep useHTML false
                     formatter: function () {
                         const point: Highcharts.PointOptionsObject = this.point;  // Get the current point for labeling
-                        let labelHtml = `<tspan fill="white" stroke="white" stroke-width="1" stroke-linejoin="round" 
+                        
+                        /*let labelHtml = `<tspan fill="white" stroke="white" stroke-width="1.2" stroke-linejoin="round" 
                                             style="display: inline-block; text-align: center; font-size: 13px; 
-                                            font-weight: 600; color: rgb(0,0,0);"
-                                            font-face="custom_font_faces">${point.name}</tspan><br>`;
+                                            font-weight: 900; color: rgb(0,0,0);"
+                                            font-face="Helvetica">${point.name}</tspan><br>`;*/
+
+                        
+                        let labelHtml=point.name + "<br>"   ;               
                         
                         // Loop through labelData and append label content if applicable
                         if (this.point.index < numberOfLabels) {
                             point.labelData?.forEach(labelCol => {
-                                labelHtml += `<tspan fill="white" stroke="white" stroke-width="1" stroke-linejoin="round" 
+                                /*labelHtml += `<tspan fill="white" stroke="white" stroke-width="1.2" stroke-linejoin="round" 
                                                 style="display: inline-block; text-align: center; font-size: 13px; 
-                                                font-weight: 600; color: rgb(0,0,0);">
+                                                font-weight: 200; color: rgb(0,0,0);">
                                                 ${labelCol.columnName}: ${numberFormatter(labelCol.value, userNumberFormat)}
-                                              </tspan><br>`;
+                                              </tspan><br>`;*/
+                                labelHtml+=labelCol.columnName+": " +numberFormatter(labelCol.value, userNumberFormat)+"<br>";
                             });
                         }
                         return labelHtml;
                     },
-                    /*style: {
-                        fontSize: '13px',
-                        fontWeight: 'normal',
-                    },*/
+                    style: {
+                        fontFamily: 'optimo-plain, "Helvetica Neue", Helvetica, Arial, sans-serif',
+                        fontWeight: '500',
+                        color: '#5e5e5e',
+                        fontSize: '12px',
+                        textOutline: '1.6px white',
+                        textShadow: 'rgba(255, 255, 255, 0.6) 0px 0px 2px'
+                    },
                 },
                 point: {
                     events: {
-                        click: function (e) {
+                        contextmenu: function (e) {
+                            e.preventDefault();
                             const clickedPointDetails = this;
                             const categoryValue = clickedPointDetails.name;
                             const measureValue = clickedPointDetails.value;
                             const colorValue = clickedPointDetails.options.colorValue;
+                            debugger;
 
+                            
                             ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
                                 event: getParsedEvent(e),
+
                                 clickedPoint: {
                                     tuple: [
                                         { columnId: configDimensions?.[0]?.columns?.[0]?.id, value: categoryValue },
@@ -260,10 +305,11 @@ function render(ctx: CustomChartContext) {
                         }
                     }
                 }
-            }],
+            }] as any,
             title: {
                 text: '',
             },
+            //
             colorAxis: {
                 width: '50%',
                 minColor: gradientColor0,
@@ -300,18 +346,40 @@ function render(ctx: CustomChartContext) {
                 enabled: false
             },
             tooltip: {
+                followPointer: true,
+                padding: 10, // Padding inside the tooltip for better spacing
+                shadow: true, // Enable a shadow for better visibility
+                backgroundColor: '#3A3F48', // Dark background color
+                borderColor: '#FFD700', // A subtle gold-like border (based on the border seen in the image)
+                borderRadius: 4, // Slightly rounded corners
+                borderWidth: 1, // Thin border
+                style: {
+                    color: '#FFFFFF', // White text
+                    fontSize: '12px', // Font size similar to the image
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', // Sans-serif font
+                    fontWeight: 'normal', // Normal font-weight for value text
+                    textAlign: 'left', // Left-align the text
+                },
+                positioner: function (labelWidth, labelHeight, point) {
+                    // Display tooltip above the cursor
+                    return {
+                        x: point.plotX + this.chart.plotLeft - labelWidth / 2,
+                        y: point.plotY + this.chart.plotTop - labelHeight - 10 // 10 pixels above the cursor
+                    };
+                },
                 useHTML: true,
                 pointFormatter: function () {
                     const point = this;
                     const options = point.options;
-                    let tooltipHtml = `<span class="labelName"><b>${dataModel.categoryName}</b></span>: <span class="labelValue">${point.name}</span><br>`;
+                    let tooltipHtml = dataModel.categoryName+": "+"<br>"+point.name + "<br>"+"<br>";
                     if (options.tooltipData && Array.isArray(options.tooltipData)) {
                         options.tooltipData.forEach((tooltipCol) => {
-                            tooltipHtml += `<span class="labelName"><b>${tooltipCol.columnName}</b></span>: <span class="labelValue">${numberFormatter(tooltipCol.value, userNumberFormat)}</span><br>`;
+                            tooltipHtml += tooltipCol.columnName+": "+"<br>" +numberFormatter(tooltipCol.value, userNumberFormat)+ "<br>"+"<br>";
                         });
                     }
                     return tooltipHtml;
                 }
+
             }
         });
     } catch (error) {
@@ -466,6 +534,9 @@ const renderChart = async (ctx: CustomChartContext): Promise<void> => {
                     },
                 ],
             },
+            allowedConfigurations: {
+                allowColumnConditionalFormatting: true
+            }
         });
 
         renderChart(ctx);
