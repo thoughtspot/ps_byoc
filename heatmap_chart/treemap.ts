@@ -360,13 +360,7 @@ function render(ctx: CustomChartContext) {
                     fontWeight: 'normal', // Normal font-weight for value text
                     textAlign: 'left', // Left-align the text
                 },
-                positioner: function (labelWidth, labelHeight, point) {
-                    // Display tooltip above the cursor
-                    return {
-                        x: point.plotX + this.chart.plotLeft - labelWidth / 2,
-                        y: point.plotY + this.chart.plotTop - labelHeight - 10 // 10 pixels above the cursor
-                    };
-                },
+                
                 useHTML: true,
                 pointFormatter: function () {
                     const point = this;
