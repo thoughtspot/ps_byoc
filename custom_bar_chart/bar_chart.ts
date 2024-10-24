@@ -137,7 +137,8 @@ function render(ctx: CustomChartContext) {
             series: series as any, // Casting to 'any' to bypass typing errors
             tooltip: {
                 formatter: function () {
-                    return `<b>${this.x}</b><br/>${this.series.name}: ${numberFormatter(this.y, userNumberFormat)}<br/>Total: ${numberFormatter(this.point.stackTotal, userNumberFormat)}`;
+                    const point = this.point as any;
+                    return `<b>${this.x}</b><br/>${this.series.name}: ${numberFormatter(point.y, userNumberFormat)}<br/>Total: ${numberFormatter(point.stackTotal, userNumberFormat)}`;
                 }
             },
             credits: {
