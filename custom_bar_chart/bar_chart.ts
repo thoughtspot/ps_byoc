@@ -1,230 +1,512 @@
-import Highcharts from 'highcharts';
-import Exporting from 'highcharts/modules/exporting'; // Import the exporting module
-import OfflineExporting from 'highcharts/modules/offline-exporting'; // Import the offline-exporting module
-import numeral from 'numeral';
-import _ from 'lodash';
-import { 
-    ChartConfig, 
-    ChartModel, 
-    ChartToTSEvent, 
-    ColumnType, 
-    CustomChartContext, 
-    getChartContext, 
-    Query 
+/**
+ * @file Custom Chart Implementation from chart.js library
+ *
+ * @fileoverview
+ *
+ * @author Chetan Agrawal <chetan.agrawal@thoughtspot.com>
+ *
+ * Copyright: ThoughtSpot Inc. 2023
+ */
+
+import {
+    ChartColumn,
+    ChartConfig,
+    ChartModel,
+    ChartSdkCustomStylingConfig,
+    ChartToTSEvent,
+    ColumnType,
+    CustomChartContext,
+    DataPointsArray,
+    dateFormatter,
+    getCfForColumn,
+    getChartContext,
+    isDateColumn,
+    isDateNumColumn,
+    PointVal,
+    Query,
+    ValidationResponse,
+    VisualPropEditorDefinition,
+    VisualProps,
 } from '@thoughtspot/ts-chart-sdk';
+import { ChartConfigEditorDefinition } from '@thoughtspot/ts-chart-sdk/src';
+import Chart from 'chart.js/auto';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import _ from 'lodash';
+import {
+    availableColor,
+    getBackgroundColor,
+    getPlotLinesAndBandsFromConditionalFormatting,
+    visualPropKeyMap,
+} from './custom-chart.utils';
+import {
+    createPlotbandPlugin,
+    createPlotlinePlugin,
+} from './custom-chart-plugins';
 
-// Initialize Highcharts exporting modules
-Exporting(Highcharts);
-OfflineExporting(Highcharts);
+Chart.register(ChartDataLabels);
 
-let userNumberFormat = '0.0'; // Default number format
+let globalChartReference: Chart;
 
-// Interface for visualProps
-interface VisualProps {
-    numberFormat: string;
-}
-
-// Custom Number Formatter for formatting values in the chart and tooltip
-const numberFormatter = (value: number, format = '0.0') => {
-    try {
-        return numeral(value).format(format);
-    } catch (error) {
-        console.error("Error in numberFormatter: ", error);
-        return value.toString();
-    }
+const exampleClientState = {
+    id: 'chart-id',
+    name: 'custom-bar-chart',
+    library: 'chartJs',
 };
 
-// Function to get the data model from the chart model
-function getDataModel(chartModel: ChartModel) {
-    console.log("Extracting data model from chartModel: ", chartModel);
-    try {
-        const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
-
-        const dataArr = chartModel.data?.[0]?.data ?? undefined;
-
-        if (!dataArr) {
-            console.error('No data found in chartModel');
-            return { values: [] };
+function getDataForColumn(column: ChartColumn, dataArr: DataPointsArray) {
+    const idx = _.findIndex(dataArr.columns, (colId) => column.id === colId);
+    return _.map(dataArr.dataValue, (row) => {
+        const colValue = row[idx];
+        if (isDateColumn(column) || isDateNumColumn(column)) {
+            return dateFormatter(colValue, column);
         }
-
-        const categoryColumn = configDimensions?.[0]?.columns?.[0]; // x-axis
-        const measureColumns = _.filter(chartModel.columns, col => col.type === ColumnType.MEASURE);
-
-        const categoryColumnIndex = dataArr.columns.findIndex(col => col === categoryColumn?.id);
-        const measureColumnIndexes = measureColumns.map(col => dataArr.columns.findIndex(c => c === col.id));
-
-        if (!categoryColumn || measureColumns.length === 0) {
-            console.error('The chart requires a category and at least one measure.');
-            return { values: [] };
-        }
-
-        const dataModel = dataArr.dataValue.map((row) => {
-            const categoryName = row[categoryColumnIndex];
-            const measureValues = measureColumnIndexes.map((index) => parseFloat(row[index]));
-
-            const chartDataPoint = {
-                name: categoryName !== undefined ? categoryName.toString() : 'Unnamed',
-                data: measureValues
-            };
-            return chartDataPoint;
-        });
-
-        return {
-            values: dataModel,
-            categoryName: categoryColumn?.name,
-            measureColumns: measureColumns.map(col => col.name),
-        };
-    } catch (error) {
-        console.error("Error in getDataModel: ", error);
-        return { values: [] };
-    }
+        return colValue;
+    });
 }
 
-// Function to render the stacked bar chart
+function getColumnDataModel(
+    configDimensions,
+    dataArr: DataPointsArray,
+    type,
+    visualProps: VisualProps,
+    customStyleConfig: ChartSdkCustomStylingConfig,
+) {
+    // this should be handled in a better way
+    const xAxisColumns = configDimensions?.[0].columns ?? [];
+    const yAxisColumns = configDimensions?.[1].columns ?? [];
+
+    return {
+        getLabels: () => getDataForColumn(xAxisColumns[0], dataArr),
+        getDatasets: () =>
+            _.map(yAxisColumns, (col, idx) => {
+                const coldata = getDataForColumn(col, dataArr);
+                const CFforColumn = getCfForColumn(col);
+                const axisId = `${type}-y${idx.toString()}`;
+                const color = coldata.map((value, index) =>
+                    getBackgroundColor(
+                        customStyleConfig,
+                        visualProps,
+                        idx,
+                        dataArr,
+                        CFforColumn,
+                        index,
+                        col.id,
+                    ),
+                );
+                const { plotlines, plotbands } =
+                    getPlotLinesAndBandsFromConditionalFormatting(
+                        CFforColumn,
+                        axisId,
+                    );
+
+                return {
+                    label: col.name,
+                    data: coldata,
+                    yAxisID: axisId,
+                    type: `${type}`,
+                    backgroundColor: color,
+                    borderColor: color,
+                    datalabels: {
+                        anchor: 'end',
+                    },
+                    plotlines,
+                    plotbands,
+                };
+            }),
+        getScales: () =>
+            _.reduce(
+                yAxisColumns,
+                (obj: any, _val, idx: number) => {
+                    // eslint-disable-next-line no-param-reassign
+                    obj[`${type}-y${idx.toString()}`] = {
+                        grid: {
+                            display: true,
+                        },
+                        position: idx === 0 ? 'left' : 'right',
+                        title: {
+                            display: true,
+                            text: _val.name,
+                            font: {
+                                size: 30,
+                                family: 'Custom font',
+                            },
+                        },
+                    };
+                    return obj;
+                },
+                {},
+            ),
+        getPointDetails: (xPos: number, yPos: number): PointVal[] => [
+            {
+                columnId: xAxisColumns[0].id,
+                value: getDataForColumn(xAxisColumns[0], dataArr)[xPos],
+            },
+            {
+                columnId: yAxisColumns[yPos].id,
+                value: getDataForColumn(yAxisColumns[yPos], dataArr)[xPos],
+            },
+        ],
+    };
+}
+
+function getDataModel(
+    chartModel: ChartModel,
+    customStyleConfig: ChartSdkCustomStylingConfig | undefined,
+) {
+    // column chart model
+    const columnChartModel = getColumnDataModel(
+        chartModel.config?.chartConfig?.[0].dimensions ?? [],
+        chartModel.data?.[0].data ?? [],
+        'bar',
+        chartModel.visualProps,
+        customStyleConfig,
+    );
+
+    return columnChartModel;
+}
+
+function getParsedEvent(evt: any) {
+    return _.pick(evt.native, ['clientX', 'clientY']);
+}
+
+function downloadChartAsPNG() {
+    const imageLink = document.createElement('a');
+    const canvas = document.getElementById('chart') as any;
+    imageLink.download = 'bar-chart.png';
+    imageLink.href = canvas.toDataURL('image/png', 1);
+    imageLink.click();
+}
+
+// To apply custom font, Note: chart url will need to be whitelisted for
+// font-src for this to work and not through CORS error
+
+function insertCustomFont(customFontFaces) {
+    customFontFaces.forEach((it: any) => {
+        const font = new FontFace(it.family, `url(${it.url})`);
+        document.fonts.add(font);
+    });
+}
+
 function render(ctx: CustomChartContext) {
-    console.log("Rendering the chart...");
+    const chartModel = ctx.getChartModel();
+    const appConfig = ctx.getAppConfig();
+
+    ctx.emitEvent(ChartToTSEvent.UpdateVisualProps, {
+        visualProps: JSON.parse(
+            JSON.stringify({
+                ...chartModel.visualProps,
+                // used to store any local state specific to chart, can only be
+                // of type string. This will be preserved when you save answer
+                clientState: exampleClientState,
+            }),
+        ),
+    });
+    if (
+        appConfig?.styleConfig?.customFontFaces?.length &&
+        appConfig?.styleConfig?.customFontFaces?.length > 0
+    ) {
+        insertCustomFont(appConfig.styleConfig?.customFontFaces);
+    }
+
+    const appColor = appConfig?.styleConfig?.appPanelColor?.color || '';
+    const dataModel = getDataModel(chartModel, appConfig?.styleConfig);
+    const allowLabels = _.get(
+        chartModel.visualProps,
+        visualPropKeyMap[2],
+        false,
+    );
+    const labelColor = _.get(
+        chartModel.visualProps,
+        visualPropKeyMap[1],
+        availableColor[0],
+    );
+    if (!dataModel) {
+        return;
+    }
+
     try {
-        const chartModel = ctx.getChartModel();
-        if (!chartModel) {
-            console.error("chartModel is undefined");
-            return;
-        }
-        const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
+        const canvas = document.getElementById('chart') as any;
+        // clear canvas.
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
-        const dataModel = getDataModel(chartModel);
+        globalChartReference = new Chart(canvas as any, {
+            type: 'bar',
+            data: {
+                labels: dataModel.getLabels(),
+                datasets: dataModel.getDatasets() as any,
+            },
+            options: {
+                animation: {
+                    duration: 0,
+                },
+                scales: dataModel.getScales(),
+                plugins: {
+                    // Change options for ALL labels of THIS CHART
+                    datalabels: {
+                        display: allowLabels,
+                        color: labelColor,
+                        labels: {
+                            title: {
+                                font: {
+                                    weight: 'bold',
+                                    size: 12,
+                                    family: 'Custom font',
+                                },
+                            },
 
-        if (dataModel.values.length === 0) {
-            console.error('No valid data to render.');
-            return;
-        }
+                            value: {
+                                color: appColor,
+                            },
+                        },
+                    },
+                },
+                // responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'point',
+                    intersect: true,
+                },
+                onClick: (e: any) => {
+                    const activeElement = e.chart.getActiveElements()[0];
+                    const dataX = activeElement.index;
+                    const dataY = activeElement.datasetIndex;
 
-        const visualProps = chartModel.visualProps as VisualProps;
-        userNumberFormat = visualProps.numberFormat || userNumberFormat;
-
-        const categories = dataModel.values.map(d => d.name);
-        const series = dataModel.measureColumns.map((measureColumn, i) => ({
-            name: measureColumn,
-            data: dataModel.values.map(d => d.data[i])
-        }));
-
-        const chartInstance = Highcharts.chart('chart-container', {
-            chart: {
-                type: 'bar'
+                    console.log(
+                        'ChartPoint',
+                        dataX,
+                        dataY,
+                        dataModel.getPointDetails(dataX, dataY),
+                    );
+                    ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
+                        event: getParsedEvent(e),
+                        clickedPoint: {
+                            tuple: dataModel.getPointDetails(dataX, dataY),
+                        },
+                        customActions: [
+                            {
+                                id: 'custom-action-1',
+                                label: 'Custom user action 1',
+                                icon: '',
+                                onClick: (...arg) => {
+                                    console.log(
+                                        'custom action 1 triggered',
+                                        arg,
+                                    );
+                                },
+                            },
+                            {
+                                id: 'download-chart',
+                                label: 'Download chart',
+                                icon: '',
+                                onClick: () => {
+                                    downloadChartAsPNG();
+                                },
+                            },
+                        ],
+                    });
+                },
             },
-            title: {
-                text: 'Stacked Bar Chart Example'
-            },
-            xAxis: {
-                categories: categories,
-                title: {
-                    text: dataModel.categoryName
-                }
-            },
-            yAxis: {
-                min: 0,
-                title: {
-                    text: 'Total value'
-                }
-            },
-            legend: {
-                reversed: true
-            },
-            plotOptions: {
-                series: {
-                    stacking: 'normal' // Enable stacking
-                }
-            },
-            series: series as any, // Casting to 'any' to bypass typing errors
-            tooltip: {
-                formatter: function () {
-                    const point = this.point as any;
-                    return `<b>${this.x}</b><br/>${this.series.name}: ${numberFormatter(point.y, userNumberFormat)}<br/>Total: ${numberFormatter(point.stackTotal, userNumberFormat)}`;
-                }
-            },
-            credits: {
-                enabled: false
-            },
-            exporting: {
-                enabled: true
-            }
+            plugins: [
+                createPlotlinePlugin(dataModel),
+                createPlotbandPlugin(dataModel),
+            ],
         });
-    } catch (error) {
-        console.error('Render failed: ', error);
+    } catch (e) {
+        console.error('renderfailed', e);
+        throw e;
     }
 }
 
-// Function to render the chart
 const renderChart = async (ctx: CustomChartContext): Promise<void> => {
+    if (globalChartReference) {
+        globalChartReference.destroy();
+    }
     try {
         ctx.emitEvent(ChartToTSEvent.RenderStart);
         render(ctx);
-    } catch (error) {
-        console.error('Error during renderChart: ', error);
+    } catch (e) {
         ctx.emitEvent(ChartToTSEvent.RenderError, {
             hasError: true,
-            error: error,
+            error: e,
         });
     } finally {
         ctx.emitEvent(ChartToTSEvent.RenderComplete);
     }
 };
 
-// Immediately Invoked Async Function (IIFE) to initialize and render the chart
 (async () => {
-    console.log("IIFE Started");
-    try {
-        const ctx = await getChartContext({
-            getDefaultChartConfig: (chartModel: ChartModel): ChartConfig[] => {
-                console.log("Generating default chart configuration...");
+    const ctx = await getChartContext({
+        getDefaultChartConfig: (chartModel: ChartModel): ChartConfig[] => {
+            const cols = chartModel.columns;
 
-                const cols = chartModel.columns ?? [];
-                const attributeColumns = _.filter(cols, (col) => col.type === ColumnType.ATTRIBUTE);
-                const measureColumns = _.filter(cols, (col) => col.type === ColumnType.MEASURE);
+            const measureColumns = _.filter(
+                cols,
+                (col) => col.type === ColumnType.MEASURE,
+            );
 
-                if (attributeColumns.length === 0 || measureColumns.length === 0) {
-                    throw new Error("Missing required attribute or measure columns.");
-                }
+            const attributeColumns = _.filter(
+                cols,
+                (col) => col.type === ColumnType.ATTRIBUTE,
+            );
 
-                return [{
-                    key: 'column',
-                    dimensions: [
-                        {
-                            key: 'category', // x-axis (category)
-                            columns: attributeColumns.length > 0 ? [attributeColumns[0]] : [],
-                        },
-                        {
-                            key: 'measure', // y-axis (measure)
-                            columns: measureColumns.length > 0 ? measureColumns : [],
-                        },
-                    ],
-                }];
-            },
-            getQueriesFromChartConfig: (chartConfig: ChartConfig[]): Array<Query> => {
-                return chartConfig.map((config: ChartConfig): Query =>
+            const axisConfig: ChartConfig = {
+                key: 'column',
+                dimensions: [
+                    {
+                        key: 'x',
+                        columns: [attributeColumns[0]],
+                    },
+                    {
+                        key: 'y',
+                        columns: measureColumns.slice(0, 2),
+                    },
+                ],
+            };
+            return [axisConfig];
+        },
+        getQueriesFromChartConfig: (
+            chartConfig: ChartConfig[],
+        ): Array<Query> => {
+            const queries = chartConfig.map(
+                (config: ChartConfig): Query =>
                     _.reduce(
                         config.dimensions,
                         (acc: Query, dimension) => ({
-                            queryColumns: [...acc.queryColumns, ...dimension.columns],
+                            queryColumns: [
+                                ...acc.queryColumns,
+                                ...dimension.columns,
+                            ],
                         }),
-                        { queryColumns: [] } as Query,
+                        {
+                            queryColumns: [],
+                        } as Query,
                     ),
-                );
-            },
-            renderChart: (ctx) => renderChart(ctx),
-            visualPropEditorDefinition: {
-                elements: [
-                    {
-                        key: 'numberFormat',
-                        type: 'text',
-                        defaultValue: '0.0',
-                        label: 'Number Format',
-                    },
-                ],
-            },
-        });
+            );
+            return queries;
+        },
+        renderChart: (ctx) => renderChart(ctx),
+        validateConfig: (
+            updatedConfig: any[],
+            chartModel: any,
+        ): ValidationResponse => {
+            if (updatedConfig.length <= 0) {
+                return {
+                    isValid: false,
+                    validationErrorMessage: ['Invalid config. no config found'],
+                };
+            }
+            return {
+                isValid: true,
+            };
+        },
+        validateVisualProps: (visualProps, chartModel) => {
+            return {
+                isValid: true,
+            };
+        },
+        chartConfigEditorDefinition: (
+            currentChartConfig: ChartModel,
+            ctx: CustomChartContext,
+        ): ChartConfigEditorDefinition[] => {
+            const { config, visualProps } = currentChartConfig;
 
-        renderChart(ctx);
-    } catch (error) {
-        console.error('Error during initialization: ', error);
-    }
+            const yColumns = config?.chartConfig?.[0]?.dimensions.find(
+                (dimension) => dimension.key === 'y' && dimension.columns,
+            );
+
+            const configDefinition = [
+                {
+                    key: 'column',
+                    label: 'Custom Column',
+                    descriptionText:
+                        'X Axis can only have attributes, Y Axis can only have measures, Color can only have attributes. ' +
+                        'Should have just 1 column in Y axis with colors columns.',
+                    columnSections: [
+                        {
+                            key: 'x',
+                            label: 'Custom X Axis',
+                            allowAttributeColumns: true,
+                            allowMeasureColumns: false,
+                            allowTimeSeriesColumns: true,
+                            maxColumnCount: 1,
+                        },
+                        {
+                            key: 'y',
+                            label: 'Custom Y Axis',
+                            allowAttributeColumns: false,
+                            allowMeasureColumns: true,
+                            allowTimeSeriesColumns: false,
+                        },
+                    ],
+                },
+            ];
+            if (yColumns?.columns.length) {
+                for (let i = 0; i < yColumns.columns.length; i++) {
+                    configDefinition[0].columnSections.push({
+                        key: `layers${i}`,
+                        label: `Measures layer${i}`,
+                        allowAttributeColumns: false,
+                        allowMeasureColumns: true,
+                        allowTimeSeriesColumns: false,
+                    });
+                }
+            }
+            return configDefinition;
+        },
+        visualPropEditorDefinition: (
+            currentVisualProps: ChartModel,
+            ctx: CustomChartContext,
+        ): VisualPropEditorDefinition => {
+            const { visualProps } = currentVisualProps;
+            const elements = [
+                {
+                    key: 'color',
+                    type: 'radio',
+                    defaultValue: 'red',
+                    values: ['red', 'green', 'yellow'],
+                    label: 'Colors',
+                },
+                {
+                    type: 'section',
+                    key: 'accordion',
+                    label: 'Accordion',
+                    children: [
+                        {
+                            key: 'datalabels',
+                            type: 'toggle',
+                            defaultValue: false,
+                            label: 'Data Labels',
+                        },
+                    ],
+                },
+            ];
+            if (visualProps?.length !== 0) {
+                if (visualProps?.accordion?.datalabels) {
+                    elements[1].children?.push({
+                        key: 'Color2',
+                        type: 'radio',
+                        defaultValue: 'blue',
+                        values: ['blue', 'white', 'red'],
+                        label: 'Color2',
+                    });
+                }
+            }
+            return { elements };
+        },
+        allowedConfigurations: {
+            allowColumnConditionalFormatting: true,
+            allowMeasureNamesAndValues: true,
+        },
+        chartConfigParameters: {
+            measureNameValueColumns: {
+                enableMeasureNameColumn: true,
+                enableMeasureValueColumn: true,
+                measureNameColumnAlias: 'Name',
+                measureValueColumnAlias: 'Value',
+            },
+            batchSizeLimit: 20000,
+        },
+    });
+
+    renderChart(ctx);
 })();
