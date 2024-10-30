@@ -1,44 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Highcharts Stacked Bar Chart</title>
-
-    <!-- Include Highcharts library -->
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script src="https://code.highcharts.com/modules/exporting.js"></script>
-    <script src="https://code.highcharts.com/modules/offline-exporting.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeral.js/2.0.6/numeral.min.js"></script>
-
-    <!-- Include Highcharts Custom Events plugin -->
-    <script src="https://blacklabel.github.io/custom_events/customEvents.js"></script> <!-- This is the CDN link -->
-
-    <!-- Link to the external TypeScript file with type="module" -->
-    <script type="module" src="bar_chart.ts"></script>
-
-    <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-      }
-
-      #chart-container {
-        width: 100%;
-        height: 100%;
-      }
-
-      /* Add custom styles for Highcharts tooltip */
-      .highcharts-tooltip {
-        position: absolute;
-        z-index: 1000; /* High z-index to ensure it is in front */
-        pointer-events: none; /* Optional: makes sure it doesn't interfere with chart interactivity */
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Container for the Stacked Bar Chart -->
-    <div id="chart-container"></div>
-  </body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>TS custom chart</title>
+    </head>
+    <body>
+        <div style="width: 99vw; height: 95vh; position: relative">
+            <canvas id="chart" style="display: flex"></canvas>
+        </div>
+        <script type="module" src="./custom-chart.ts"></script>
+    </body>
 </html>

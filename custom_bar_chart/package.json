@@ -1,21 +1,22 @@
 {
-    "name": "treemap",
-    "private": true,
-    "version": "0.0.0",
-    "type": "module",
+    "name": "custom-bar-chart",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.html",
     "scripts": {
         "dev": "vite",
-        "build": "vite build",
+        "build": "tsc && vite build",
         "preview": "vite preview"
     },
+    "author": "Chetan Agrawal (chetan.agrawal@thoughtspot.com)",
+    "license": "ISC",
     "devDependencies": {
-        "vite": "^5.2.0"
+        "vite": "^4.3.5"
     },
     "dependencies": {
-        "@thoughtspot/ts-chart-sdk": "^0.0.2-alpha.16",
-        "highcharts": "^11.4.8",
-        "lodash": "^4.17.21",
-        "numeral": "^2.0.6",
-        "highcharts-custom-events": "^3.0.10"
+        "@thoughtspot/ts-chart-sdk": "0.0.2-alpha.20",
+        "chart.js": "^4.3.0",
+        "chartjs-plugin-datalabels": "^2.2.0",
+        "lodash": "^4.17.21"
     }
 }
