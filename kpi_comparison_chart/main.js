@@ -59,20 +59,19 @@ function calculateKpiValues(chartModel) {
 
   const configDimensions = chartModel.config?.chartConfig?.[1]?.dimensions ?? chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
 
-
   // Get the main KPI measure column (first measure in the x-axis)
-  const mainKpiColumn = chartModel?.config?.chartConfig[0]?.dimensions?.find(
-    (it) => it.key === 'x'
-  );
+  const mainKpiColumn = configDimensions.find((it) => it.key === 'x');
 
-  const mainKpiValue = _.sum(
-    getDataForColumn(mainKpiColumn.columns[0], dataArr)
-  );
+  // Retrieve the ID of the main KPI column to exclude from comparison measures
+  const mainKpiColumnId = mainKpiColumn?.columns?.[0]?.id;
+  
+  // Calculate the main KPI value
+  const mainKpiValue = mainKpiColumnId ? _.sum(getDataForColumn(mainKpiColumn.columns[0], dataArr)) : 0;
 
-  // Filter out the main KPI column from the comparison measures
-  const comparisonMeasures = measureColumns.filter(
-    (col) => col.id !== mainKpiColumn.columns[0].id
-  );
+  // Filter out comparison measures that are not part of the visualized dimensions
+  const comparisonMeasures = measureColumns.filter((col) => {
+    return col.id !== mainKpiColumnId && configDimensions.some(dimension => dimension.columns.some(c => c.id === col.id));
+  });
 
   const measures = comparisonMeasures.map((col) => {
     const value = _.sum(getDataForColumn(col, dataArr));
