@@ -57,18 +57,22 @@ function calculateKpiValues(chartModel) {
   if (measureColumns.length === 0 || dataArr.length === 0)
     return { mainKpiValue: 0, measures: [] };
 
-  const configDimensions = chartModel?.config?.chartConfig[0]?.dimensions?? [];
+  const configDimensions = chartModel.config?.chartConfig?.[1]?.dimensions ?? chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
 
 
   // Get the main KPI measure column (first measure in the x-axis)
-  const mainKpiColumn = configDimensions?.[0] ?? [];
+  const mainKpiColumn = chartModel?.config?.chartConfig[0]?.dimensions?.find(
+    (it) => it.key === 'x'
+  );
 
   const mainKpiValue = _.sum(
     getDataForColumn(mainKpiColumn.columns[0], dataArr)
   );
 
   // Filter out the main KPI column from the comparison measures
-  const comparisonMeasures = configDimensions?.slice(1) ?? [];
+  const comparisonMeasures = measureColumns.filter(
+    (col) => col.id !== mainKpiColumn.columns[0].id
+  );
 
   const measures = comparisonMeasures.map((col) => {
     const value = _.sum(getDataForColumn(col, dataArr));
@@ -120,7 +124,6 @@ function insertCustomFont(customFontFaces) {
 async function render(ctx) {
   const chartModel = await ctx.getChartModel();
   const appConfig = ctx.getAppConfig();
-  const configDimensions = chartModel?.config?.chartConfig[0]?.dimensions?? [];
 
   if (appConfig?.styleConfig?.customFontFaces?.length) {
     insertCustomFont(appConfig.styleConfig.customFontFaces);
@@ -152,7 +155,10 @@ const renderChart = async (ctx) => {
   const ctx = await getChartContext({
     getDefaultChartConfig: (chartModel) => {
       const cols = chartModel.columns;
-      const measureColumns = chartModel?.config?.chartConfig[0]?.dimensions?? [];
+      const measureColumns = _.filter(
+        cols,
+        (col) => col.type === ColumnType.MEASURE
+      );
       const axisConfig = {
         key: 'column',
         dimensions: [
