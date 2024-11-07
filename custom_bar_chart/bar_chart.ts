@@ -5,73 +5,79 @@ import {
     CustomChartContext,
     ChartModel,
     ChartConfig,
-    ChartSdkCustomStylingConfig,
     DataPointsArray,
+    Query,
     ChartColumn,
 } from '@thoughtspot/ts-chart-sdk';
 import Highcharts from 'highcharts';
 import numeral from 'numeral';
 import _ from 'lodash';
 
-let globalChartReference: Highcharts.Chart;
-
-// Define the interface for visual properties
+// Interface for visualProps
 interface VisualProps {
     xAxisTitle?: string;
     yAxisTitle?: string;
+    numberFormat?: string;
 }
 
-// Map to store colors for each series name
-const seriesColorMap: Record<string, string> = {};
+// Initialize global chart reference
+let globalChartReference: Highcharts.Chart;
 
-// Function to generate a random color in rgba format
+// Helper function for dynamic color generation
+const seriesColorMap: Record<string, string> = {};
 function generateRandomColor(): string {
     const r = Math.floor(Math.random() * 256);
     const g = Math.floor(Math.random() * 256);
     const b = Math.floor(Math.random() * 256);
     return `rgba(${r}, ${g}, ${b}, 0.5)`;
 }
-
-// Function to get or assign a background color for a series dynamically
 function getBackgroundColorForSeries(seriesName: string): string {
     if (seriesColorMap[seriesName]) {
         return seriesColorMap[seriesName];
     }
     const color = generateRandomColor();
     seriesColorMap[seriesName] = color;
+    console.log(`Generated color for series '${seriesName}':`, color);
     return color;
 }
 
-// Helper to format numbers based on user preferences
+// Function to format numbers based on visual props or default
 const userNumberFormatter = (value: number, format: string) => {
+    console.log("Formatting number:", value, "with format:", format);
     return numeral(value).format(format);
 };
 
-function getDataForColumn(column: ChartColumn, dataArr: DataPointsArray) {
-    const idx = _.findIndex(dataArr.columns, (colId) => column.id === colId);
-    return _.map(dataArr.dataValue, (row) => row[idx]);
-}
+// Function to extract data model from chart model
+function getDataModel(chartModel: ChartModel) {
+    console.log("Extracting data model from chartModel:", chartModel);
+    debugger;
 
-function getColumnDataModel(
-    configDimensions,
-    dataArr: DataPointsArray,
-    visualProps,
-    customStyleConfig: ChartSdkCustomStylingConfig
-) {
-    const xAxisColumn = configDimensions?.[0]?.columns[0]; // Main x-axis attribute
-    const seriesColumn = configDimensions?.[1]?.columns[0]; // Series (stack) attribute
-    const measureColumn = configDimensions?.[2]?.columns[0]; // Measure for stacking
+    const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
+    console.log("Configuration Dimensions:", configDimensions);
 
-    const xAxisLabels = getDataForColumn(xAxisColumn, dataArr);
-    const seriesData = _.groupBy(dataArr.dataValue, (row) => row[seriesColumn.id]);
+    const dataArr: DataPointsArray = chartModel.data?.[0]?.data ?? { columns: [], dataValue: [] };
+    console.log("Data Array:", dataArr);
 
-    const series = Object.keys(seriesData).map((seriesName) => {
-        const data = xAxisLabels.map((label) => {
-            const row = seriesData[seriesName].find(
-                (item) => item[xAxisColumn.id] === label
-            );
-            return row ? row[measureColumn.id] : 0;
+    const xAxisColumn = configDimensions?.[0]?.columns?.[0]; // Main x-axis attribute
+    const seriesColumn = configDimensions?.[1]?.columns?.[0]; // Series (stack) attribute
+    const measureColumn = configDimensions?.[2]?.columns?.[0]; // Measure for stacking
+
+    console.log("X-Axis Column:", xAxisColumn);
+    console.log("Series Column:", seriesColumn);
+    console.log("Measure Column:", measureColumn);
+
+    const xAxisLabels = _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)]));
+    console.log("X-Axis Labels:", xAxisLabels);
+
+    const seriesData = _.groupBy(dataArr.dataValue, row => row[dataArr.columns.indexOf(seriesColumn.id)]);
+    console.log("Grouped Series Data:", seriesData);
+
+    const series = Object.keys(seriesData).map(seriesName => {
+        const data = xAxisLabels.map(label => {
+            const row = seriesData[seriesName].find(item => item[dataArr.columns.indexOf(xAxisColumn.id)] === label);
+            return row ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) : 0;
         });
+        console.log(`Data for series '${seriesName}':`, data);
 
         return {
             name: seriesName,
@@ -87,53 +93,49 @@ function getColumnDataModel(
     };
 }
 
-function getDataModel(chartModel: ChartModel, customStyleConfig) {
-    const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
-    const dataArr: DataPointsArray = chartModel.data?.[0]?.data ?? { columns: [], dataValue: [] };
-
-    return getColumnDataModel(
-        configDimensions,
-        dataArr,
-        chartModel.visualProps,
-        customStyleConfig
-    );
-}
-
+// Main render function
 function render(ctx: CustomChartContext) {
-    const chartModel = ctx.getChartModel();
-    const dataModel = getDataModel(chartModel, ctx.getAppConfig()?.styleConfig);
+    console.log("Rendering chart...");
+    debugger;
 
-    // Cast visualProps to VisualProps interface
+    const chartModel = ctx.getChartModel();
+    console.log("Chart Model:", chartModel);
+
+    const dataModel = getDataModel(chartModel);
+    console.log("Data Model:", dataModel);
+
     const visualProps = chartModel.visualProps as VisualProps;
+    console.log("Visual Properties:", visualProps);
 
     // Destroy previous chart instance if it exists
     if (globalChartReference) {
         globalChartReference.destroy();
     }
 
-    // Create a new Highcharts chart
+    // Create the Highcharts Stacked Bar Chart
     globalChartReference = Highcharts.chart('chart', {
         chart: {
-            type: 'bar'
+            type: 'bar',
+            renderTo: 'chart',
         },
         title: {
-            text: 'Custom Stacked Bar Chart'
+            text: 'Custom Stacked Bar Chart',
         },
         xAxis: {
             categories: dataModel.xAxisLabels,
             title: {
-                text: visualProps?.xAxisTitle || ''
-            }
+                text: visualProps?.xAxisTitle || '',
+            },
         },
         yAxis: {
             min: 0,
             title: {
-                text: visualProps?.yAxisTitle || ''
+                text: visualProps?.yAxisTitle || '',
             },
             stackLabels: {
                 enabled: true,
                 formatter: function () {
-                    return userNumberFormatter(this.total as number, '0,0');
+                    return userNumberFormatter(this.total as number, visualProps?.numberFormat || '0,0');
                 }
             }
         },
@@ -146,92 +148,128 @@ function render(ctx: CustomChartContext) {
                 dataLabels: {
                     enabled: true,
                     formatter: function () {
-                        return userNumberFormatter(this.y as number, '0,0');
+                        return userNumberFormatter(this.y as number, visualProps?.numberFormat || '0,0');
                     }
                 }
             }
         },
         series: dataModel.series as Highcharts.SeriesOptionsType[]
     });
+    console.log("Chart rendered successfully");
 }
 
+// Chart rendering initialization
 const renderChart = async (ctx: CustomChartContext) => {
     try {
         ctx.emitEvent(ChartToTSEvent.RenderStart);
+        console.log("Render start event emitted");
+        debugger;
         render(ctx);
     } catch (error) {
-        console.error(error);
+        console.error("Error during render:", error);
     } finally {
         ctx.emitEvent(ChartToTSEvent.RenderComplete);
+        console.log("Render complete event emitted");
     }
 };
 
+// IIFE to initialize the chart
 (async () => {
-    const ctx = await getChartContext({
-        getDefaultChartConfig: (chartModel) => {
-            const cols = chartModel.columns;
+    console.log("Initializing chart context...");
+    try {
+        const ctx = await getChartContext({
+            getDefaultChartConfig: (chartModel) => {
+                console.log("Generating default chart configuration...");
+                debugger;
 
-            const attributeColumns = cols.filter(
-                (col) => col.type === ColumnType.ATTRIBUTE
-            );
-            const measureColumns = cols.filter(
-                (col) => col.type === ColumnType.MEASURE
-            );
+                const cols = chartModel.columns;
 
-            return [
+                const attributeColumns = cols.filter((col) => col.type === ColumnType.ATTRIBUTE);
+                const measureColumns = cols.filter((col) => col.type === ColumnType.MEASURE);
+
+                return [
+                    {
+                        key: 'column',
+                        dimensions: [
+                            { key: 'x', columns: [attributeColumns[0]] }, // X-axis attribute
+                            { key: 'stack', columns: [attributeColumns[1]] }, // Stack attribute
+                            { key: 'y', columns: measureColumns.slice(0, 1) }, // Y-axis measure
+                        ],
+                    },
+                ];
+            },
+
+            getQueriesFromChartConfig: (chartConfig: ChartConfig[]): Array<Query> => {
+                console.log("Generating queries from chart configuration:", chartConfig);
+                return chartConfig.map((config) =>
+                    _.reduce(
+                        config.dimensions,
+                        (acc: Query, dimension) => ({
+                            queryColumns: [...acc.queryColumns, ...dimension.columns],
+                        }),
+                        { queryColumns: [] } as Query,
+                    )
+                );
+            },
+
+            renderChart,
+            chartConfigEditorDefinition: [
                 {
                     key: 'column',
-                    dimensions: [
-                        { key: 'x', columns: [attributeColumns[0]] }, // X-axis attribute
-                        { key: 'stack', columns: [attributeColumns[1]] }, // Stack attribute
-                        { key: 'y', columns: measureColumns.slice(0, 1) }, // Y-axis measure
+                    label: 'Stacked Bar Chart Configuration',
+                    descriptionText: 'Select attributes for x-axis, stack, and a measure for the y-axis.',
+                    columnSections: [
+                        {
+                            key: 'x',
+                            label: 'X-Axis Attribute',
+                            allowAttributeColumns: true,
+                            allowMeasureColumns: false,
+                            maxColumnCount: 1,
+                        },
+                        {
+                            key: 'stack',
+                            label: 'Stack Attribute',
+                            allowAttributeColumns: true,
+                            allowMeasureColumns: false,
+                            maxColumnCount: 1,
+                        },
+                        {
+                            key: 'y',
+                            label: 'Y-Axis Measure',
+                            allowAttributeColumns: false,
+                            allowMeasureColumns: true,
+                            maxColumnCount: 1,
+                        },
                     ],
                 },
-            ];
-        },
-
-        getQueriesFromChartConfig: (chartConfig) => {
-            return chartConfig.map((config) => {
-                const queryColumns = config.dimensions.flatMap((dimension) =>
-                    dimension.columns.map((col) => col)
-                );
-                return { queryColumns };
-            });
-        },
-
-        renderChart,
-        chartConfigEditorDefinition: [
-            {
-                key: 'column',
-                label: 'Custom Column',
-                descriptionText:
-                    'Select attributes for x-axis (category) and stack (series) and a measure for the y-axis.',
-                columnSections: [
+            ],
+            visualPropEditorDefinition: {
+                elements: [
                     {
-                        key: 'x',
-                        label: 'X-Axis Attribute',
-                        allowAttributeColumns: true,
-                        allowMeasureColumns: false,
-                        maxColumnCount: 1,
+                        key: 'xAxisTitle',
+                        type: 'text',
+                        defaultValue: 'X Axis',
+                        label: 'X-Axis Title',
                     },
                     {
-                        key: 'stack',
-                        label: 'Stack Attribute',
-                        allowAttributeColumns: true,
-                        allowMeasureColumns: false,
-                        maxColumnCount: 1,
+                        key: 'yAxisTitle',
+                        type: 'text',
+                        defaultValue: 'Y Axis',
+                        label: 'Y-Axis Title',
                     },
                     {
-                        key: 'y',
-                        label: 'Y-Axis Measure',
-                        allowAttributeColumns: false,
-                        allowMeasureColumns: true,
-                        maxColumnCount: 1,
+                        key: 'numberFormat',
+                        type: 'text',
+                        defaultValue: '0,0',
+                        label: 'Number Format',
                     },
                 ],
             },
-        ],
-    });
+        });
 
-    renderChart(ctx);
+        console.log("Context initialized successfully:", ctx);
+        renderChart(ctx);
+    } catch (error) {
+        console.error("Error during chart context initialization:", error);
+    }
 })();
