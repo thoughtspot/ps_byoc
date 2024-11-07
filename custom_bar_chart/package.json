@@ -8,16 +8,16 @@
         "build": "tsc && vite build",
         "preview": "vite preview"
     },
-    "author": "Chetan Agrawal (chetan.agrawal@thoughtspot.com)",
+    "author": "Nihal Ahmed",
     "license": "ISC",
     "devDependencies": {
-        "vite": "^4.3.5"
+        "vite": "^4.3.5",
+        "@types/highcharts": "^11.0.0"  
     },
     "dependencies": {
         "@thoughtspot/ts-chart-sdk": "0.0.2-alpha.20",
-        "chart.js": "^4.3.0",
-        "chartjs-plugin-datalabels": "^2.2.0",
         "lodash": "^4.17.21",
-        "numeral": "^2.0.6"
+        "numeral": "^2.0.6",
+        "highcharts": "11.4.8"  
     }
 }

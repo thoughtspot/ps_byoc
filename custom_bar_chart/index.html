@@ -3,11 +3,19 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>TS custom chart</title>
+        <title>TS Custom Chart</title>
+        <style>
+            /* Ensure the chart container has the right dimensions */
+            #chart {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
     </head>
     <body>
         <div style="width: 99vw; height: 95vh; position: relative">
-            <canvas id="chart" style="display: flex"></canvas>
+            <!-- Change from canvas to div for Highcharts -->
+            <div id="chart"></div>
         </div>
         <script type="module" src="bar_chart.ts"></script>
     </body>
