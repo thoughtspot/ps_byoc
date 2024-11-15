@@ -12,6 +12,8 @@ import {
 import Highcharts from 'highcharts';
 import numeral from 'numeral';
 import _ from 'lodash';
+import { AxisMenuActions } from '../types/chart-to-ts-event.types.ts';
+
 
 // Interface for visualProps
 interface VisualProps {
@@ -41,11 +43,10 @@ function getBackgroundColorForSeries(seriesName: string): string {
     return color;
 }
 
-// Function to format numbers based on visual props or default
-const userNumberFormatter = (value: number, format: string) => {
-    console.log("Formatting number:", value, "with format:", format);
-    return numeral(value).format(format);
-};
+// Function to format numbers with K, M, B notation
+function formatNumberWithAbbreviation(value: number): string {
+    return numeral(value).format('0.[0]a').toUpperCase();
+}
 
 // Function to extract data model from chart model
 function getDataModel(chartModel: ChartModel) {
@@ -93,6 +94,20 @@ function getDataModel(chartModel: ChartModel) {
     };
 }
 
+function getAxisTitles(chartModel: ChartModel): { xAxisTitle: string, yAxisTitle: string } {
+    const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
+    const xAxisColumn = configDimensions?.[0]?.columns?.[0]; // X-axis attribute
+    const yAxisColumn = configDimensions?.[2]?.columns?.[0]; // Y-axis measure
+
+    const xAxisTitle = xAxisColumn?.name || 'X-Axis';  // Use the name from the data or default to "X-Axis"
+    const yAxisTitle = yAxisColumn?.name || 'Y-Axis';  // Use the name from the data or default to "Y-Axis"
+
+    return {
+        xAxisTitle,
+        yAxisTitle,
+    };
+}
+
 // Main render function
 function render(ctx: CustomChartContext) {
     console.log("Rendering chart...");
@@ -103,6 +118,9 @@ function render(ctx: CustomChartContext) {
 
     const dataModel = getDataModel(chartModel);
     console.log("Data Model:", dataModel);
+
+    const { xAxisTitle, yAxisTitle } = getAxisTitles(chartModel); // Dynamically set axis titles
+    console.log("Dynamic Axis Titles:", xAxisTitle, yAxisTitle);
 
     const visualProps = chartModel.visualProps as VisualProps;
     console.log("Visual Properties:", visualProps);
@@ -116,26 +134,60 @@ function render(ctx: CustomChartContext) {
     globalChartReference = Highcharts.chart('chart', {
         chart: {
             type: 'bar',
-            renderTo: 'chart',
+            events: {
+                load: function() {
+                    // Add a context menu manually on load
+                    this.container.addEventListener('contextmenu', function(event) {
+                        event.preventDefault();
+                        ctx.emitEvent(ChartToTSEvent.OpenAxisMenu, {
+                            event: { clientX: event.clientX, clientY: event.clientY },
+                            columnIds: [xAxisTitle],
+                            selectedActions: [
+                                AxisMenuActions.AGGREGATE,
+                                AxisMenuActions.FILTER,
+                                AxisMenuActions.SORT,
+                                AxisMenuActions.TIME_BUCKET,
+                            ],
+                            customActions: [
+                                {
+                                    id: 'custom-action-1',
+                                    label: 'Custom Action',
+                                    onClick: () => handleAxisMenuAction('Custom Action', xAxisTitle),
+                                }
+                            ],
+                        });
+                    });
+                }
+            }
         },
         title: {
-            text: 'Custom Stacked Bar Chart',
+            text: ''
         },
         xAxis: {
             categories: dataModel.xAxisLabels,
             title: {
-                text: visualProps?.xAxisTitle || '',
+                text: xAxisTitle,
             },
+            gridLineWidth: 0
         },
         yAxis: {
             min: 0,
             title: {
-                text: visualProps?.yAxisTitle || '',
+                text: yAxisTitle,
+            },
+            gridLineWidth: 0,
+            labels: {
+                formatter: function () {
+                    return formatNumberWithAbbreviation(this.value as number);
+                }
             },
             stackLabels: {
                 enabled: true,
                 formatter: function () {
-                    return userNumberFormatter(this.total as number, visualProps?.numberFormat || '0,0');
+                    return formatNumberWithAbbreviation(this.total as number);
+                },
+                style: {
+                    color: '#000'
                 }
             }
         },
@@ -145,10 +197,25 @@ function render(ctx: CustomChartContext) {
         plotOptions: {
             series: {
                 stacking: 'normal',
+                pointPadding: 0.1,
+                groupPadding: 0.05,
+                borderWidth: 0,
                 dataLabels: {
                     enabled: true,
                     formatter: function () {
-                        return userNumberFormatter(this.y as number, visualProps?.numberFormat || '0,0');
+                        const pointValue = this.y as number;
+                        const stackTotal = this.total as number;
+                        const percentageOfTotal = ((pointValue / stackTotal) * 100).toFixed(1);
+
+                        return formatNumberWithAbbreviation(pointValue) +' | ' + percentageOfTotal + '% of Ttl.';
+                    },
+                    style: {
+                        fontFamily: 'optimo-plain, "Helvetica Neue", Helvetica, Arial, sans-serif',
+                        fontWeight: '500',
+                        color: '#5e5e5e',
+                        fontSize: '12px',
+                        textOutline: '1.6px white',
+                        textShadow: 'rgba(255, 255, 255, 0.6) 0px 0px 2px'
                     }
                 }
             }
@@ -156,6 +223,10 @@ function render(ctx: CustomChartContext) {
         series: dataModel.series as Highcharts.SeriesOptionsType[]
     });
     console.log("Chart rendered successfully");
+}
+
+function handleAxisMenuAction(action: string, columnId: string) {
+    console.log(`Axis menu action "${action}" triggered for column "${columnId}"`);
 }
 
 // Chart rendering initialization
@@ -191,9 +262,9 @@ const renderChart = async (ctx: CustomChartContext) => {
                     {
                         key: 'column',
                         dimensions: [
-                            { key: 'x', columns: [attributeColumns[0]] }, // X-axis attribute
-                            { key: 'stack', columns: [attributeColumns[1]] }, // Stack attribute
-                            { key: 'y', columns: measureColumns.slice(0, 1) }, // Y-axis measure
+                            { key: 'x', columns: [attributeColumns[0]] },
+                            { key: 'stack', columns: [attributeColumns[1]] },
+                            { key: 'y', columns: measureColumns.slice(0, 1) },
                         ],
                     },
                 ];
