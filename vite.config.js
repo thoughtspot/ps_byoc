@@ -10,7 +10,9 @@ export default defineConfig({
           'kpi_comparison_chart/index.html'
         ),
         heatmap_chart: resolve(__dirname, 'heatmap_chart/index.html'),
+        custom_bar_chart: resolve(__dirname, 'custom_bar_chart/index.html'),
         main: resolve(__dirname, 'index.html'),
+
       },
     },
   },

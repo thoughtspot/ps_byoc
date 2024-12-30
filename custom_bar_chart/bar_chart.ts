@@ -8,24 +8,42 @@ import {
     DataPointsArray,
     Query,
     ChartColumn,
+    AxisMenuActions,
+    ColumnProp,
 } from '@thoughtspot/ts-chart-sdk';
-import Highcharts from 'highcharts';
+import Highcharts, { color, Tooltip } from 'highcharts';
 import numeral from 'numeral';
 import _ from 'lodash';
-import { AxisMenuActions } from '../types/chart-to-ts-event.types.ts';
+import HighchartsCustomEvents from 'highcharts-custom-events';
 
+HighchartsCustomEvents(Highcharts);
 
-// Interface for visualProps
-interface VisualProps {
-    xAxisTitle?: string;
-    yAxisTitle?: string;
-    numberFormat?: string;
+declare module 'highcharts' {
+    interface PointOptionsObject {
+        tooltipdata?: Array<{ columnName: string, value: number }>;
+    }
 }
 
-// Initialize global chart reference
+interface VisualProps {
+    numberFormat?: string;
+    stackColors?: Record<string, string>; // Stack colors
+    showTotalStackLabels?: boolean;
+    colorMapping?: Record<string, string>; // Map stack values to colors
+}
+
 let globalChartReference: Highcharts.Chart;
 
-// Helper function for dynamic color generation
+// Utility to format numbers dynamically with K, M, B
+function formatNumber(value: number, format: string): string {
+    try {
+        const formattedValue = numeral(value).format(format);
+        return formattedValue.replace('k', 'K').replace('m', 'M').replace('b', 'B');
+    } catch (error) {
+        console.error("Error formatting number:", error);
+        return value.toString();
+    }
+}
+
 const seriesColorMap: Record<string, string> = {};
 function generateRandomColor(): string {
     const r = Math.floor(Math.random() * 256);
@@ -39,47 +57,49 @@ function getBackgroundColorForSeries(seriesName: string): string {
     }
     const color = generateRandomColor();
     seriesColorMap[seriesName] = color;
-    console.log(`Generated color for series '${seriesName}':`, color);
     return color;
 }
 
-// Function to format numbers with K, M, B notation
-function formatNumberWithAbbreviation(value: number): string {
-    return numeral(value).format('0.[0]a').toUpperCase();
-}
-
-// Function to extract data model from chart model
 function getDataModel(chartModel: ChartModel) {
-    console.log("Extracting data model from chartModel:", chartModel);
-    debugger;
-
     const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
-    console.log("Configuration Dimensions:", configDimensions);
-
     const dataArr: DataPointsArray = chartModel.data?.[0]?.data ?? { columns: [], dataValue: [] };
-    console.log("Data Array:", dataArr);
 
-    const xAxisColumn = configDimensions?.[0]?.columns?.[0]; // Main x-axis attribute
-    const seriesColumn = configDimensions?.[1]?.columns?.[0]; // Series (stack) attribute
-    const measureColumn = configDimensions?.[2]?.columns?.[0]; // Measure for stacking
+    const xAxisColumn = configDimensions?.[0]?.columns?.[0];
+    const seriesColumn = configDimensions?.[1]?.columns?.[0];
+    const measureColumn = configDimensions?.[2]?.columns?.[0];
+    const comparisonColumn = configDimensions?.[3]?.columns?.[0];
+    const tooltipArr = configDimensions?.[0]?.columns;
 
-    console.log("X-Axis Column:", xAxisColumn);
-    console.log("Series Column:", seriesColumn);
-    console.log("Measure Column:", measureColumn);
+    // Merging label and tooltip arrays as require
 
     const xAxisLabels = _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)]));
-    console.log("X-Axis Labels:", xAxisLabels);
-
     const seriesData = _.groupBy(dataArr.dataValue, row => row[dataArr.columns.indexOf(seriesColumn.id)]);
-    console.log("Grouped Series Data:", seriesData);
+
+    const dataModel = dataArr.dataValue.map((row) => {
+        const tooltipData = tooltipArr.map((col) => {
+            const columnIndex = dataArr.columns.findIndex(c => c === col.id);
+            return {
+                columnName: col.name,
+                value: row ? row[columnIndex] : 'N/A',
+            };
+        });
+
+        return { tooltipData };
+    });
+
 
     const series = Object.keys(seriesData).map(seriesName => {
         const data = xAxisLabels.map(label => {
             const row = seriesData[seriesName].find(item => item[dataArr.columns.indexOf(xAxisColumn.id)] === label);
-            return row ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) : 0;
-        });
-        console.log(`Data for series '${seriesName}':`, data);
+            const measureValue = row ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) : 0;
+            const comparisonValue = row ? parseFloat(row[dataArr.columns.indexOf(comparisonColumn.id)]) : 0;
+            const tooltipData = tooltipArr.map((col) => ({
+                columnName: col.name,
+                value: row[dataArr.columns.findIndex(c => c === col.id)],
+            }));
 
+            return { measureValue, comparisonValue,tooltipData };
+        });
         return {
             name: seriesName,
             data,
@@ -88,259 +108,504 @@ function getDataModel(chartModel: ChartModel) {
         };
     });
 
+    const stackLabels = Object.keys(seriesData);
+
     return {
         xAxisLabels,
         series,
+        stackLabels,
     };
 }
 
-function getAxisTitles(chartModel: ChartModel): { xAxisTitle: string, yAxisTitle: string } {
+function getStackAttributeValues(chartModel: ChartModel): string[] {
     const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
-    const xAxisColumn = configDimensions?.[0]?.columns?.[0]; // X-axis attribute
-    const yAxisColumn = configDimensions?.[2]?.columns?.[0]; // Y-axis measure
+    const stackAttributeColumn = configDimensions?.[1]?.columns?.[0];
+    const dataArr: DataPointsArray = chartModel.data?.[0]?.data ?? { columns: [], dataValue: [] };
 
-    const xAxisTitle = xAxisColumn?.name || 'X-Axis';  // Use the name from the data or default to "X-Axis"
-    const yAxisTitle = yAxisColumn?.name || 'Y-Axis';  // Use the name from the data or default to "Y-Axis"
+    if (!stackAttributeColumn) return [];
+
+    const stackAttributeIndex = dataArr.columns.indexOf(stackAttributeColumn.id);
+    const stackValues = _.uniq(dataArr.dataValue.map((row) => row[stackAttributeIndex]));
+    return stackValues.filter((value) => value !== undefined && value !== null); // Filter valid values
+}
+
+function getColorPickerFieldsForStackValues(stackValues: string[]) {
+    return stackValues.map((value) => ({
+        type: 'colorpicker',
+        key: `stackColor_${value}`,
+        label: `${value} Color`,
+        description: `Pick a color for ${value}`,
+    }));
+}
+
+
+function generateVisualPropEditor(chartModel: ChartModel) {
+    const stackValues = getStackAttributeValues(chartModel);
 
     return {
-        xAxisTitle,
-        yAxisTitle,
+        elements: [
+            {
+                key: 'showTotalStackLabels',
+                type: 'checkbox',
+                defaultValue: true,
+                label: 'Show Total Stack Labels',
+            },
+            {
+                key: 'numberFormat',
+                type: 'text',
+                defaultValue: '0.[0]a',
+                label: 'Number Format',
+            },
+            ...getColorPickerFieldsForStackValues(stackValues), // Add dynamic color pickers
+        ],
     };
 }
 
-// Main render function
+function mapColorsToStackValues(stackValues: string[], visualProps: VisualProps) {
+    const stackColors: Record<string, string> = {};
+    stackValues.forEach((value) => {
+        const colorKey = `stackColor_${value}`;
+        if (visualProps[colorKey]) {
+            stackColors[value] = visualProps[colorKey];
+        }
+    });
+    return stackColors;
+}
+
+
+function getComparisonColumnName(chartModel: ChartModel): string {
+    const comparisonColumn = chartModel.config?.chartConfig?.[0]?.dimensions.find(
+        (dim) => dim.key === 'comparison'
+    )?.columns[0];
+    return comparisonColumn?.name || 'Comparison';
+}
+
+
+function updateStackColors(ctx: CustomChartContext, updatedColors: Record<string, string>) {
+    const visualProps = ctx.getChartModel().visualProps as VisualProps;
+    visualProps.stackColors = { ...visualProps.stackColors, ...updatedColors };
+    render(ctx); // Re-render the chart with updated colors
+}
+
+
+
+function getAxisTitles(chartModel: ChartModel): { xAxisTitle: string, yAxisTitle: string, comparisonMeasureTitle: string } {
+    const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
+    const xAxisColumn = configDimensions?.[0]?.columns?.[0];
+    const yAxisColumn = configDimensions?.[2]?.columns?.[0];
+    const comparisonColumn = configDimensions?.[3]?.columns?.[0];
+
+    const xAxisTitle = xAxisColumn?.name || 'X-Axis';
+    const yAxisTitle = yAxisColumn?.name || 'Y-Axis';
+    const comparisonMeasureTitle = comparisonColumn?.name || 'Comparison Measure';
+
+    return { xAxisTitle, yAxisTitle, comparisonMeasureTitle };
+}
+
 function render(ctx: CustomChartContext) {
-    console.log("Rendering chart...");
-    debugger;
-
     const chartModel = ctx.getChartModel();
-    console.log("Chart Model:", chartModel);
-
     const dataModel = getDataModel(chartModel);
-    console.log("Data Model:", dataModel);
+    const comparisonMeasureName = getComparisonColumnName(chartModel);
+    const { xAxisTitle, yAxisTitle } = getAxisTitles(chartModel);
+    const numberFormat = (chartModel.visualProps as VisualProps)?.numberFormat || '0.[0]a';
+    const visualProps = chartModel.visualProps as VisualProps;    
+    const showTotalStackLabels = visualProps?.showTotalStackLabels ?? true; // Default to true
+    const stackColors = visualProps.stackColors || {};
+    const stack_column_id = chartModel.config?.chartConfig?.[0]?.dimensions?.[1]?.columns?.[0]?.id;
 
-    const { xAxisTitle, yAxisTitle } = getAxisTitles(chartModel); // Dynamically set axis titles
-    console.log("Dynamic Axis Titles:", xAxisTitle, yAxisTitle);
+    console.log('stack_column_id' + stack_column_id);
 
-    const visualProps = chartModel.visualProps as VisualProps;
-    console.log("Visual Properties:", visualProps);
+    const tooltipArr = chartModel.config?.chartConfig?.[0]?.dimensions?.[4]?.columns;
 
-    // Destroy previous chart instance if it exists
+    // Merging label and tooltip arrays as required
+    const tooltipArrFinal = _.concat(tooltipArr );
+    console.log('tooltip array'+tooltipArr);
+
     if (globalChartReference) {
         globalChartReference.destroy();
     }
 
-    // Create the Highcharts Stacked Bar Chart
-    globalChartReference = Highcharts.chart('chart', {
+
+    globalChartReference = Highcharts.chart({
         chart: {
+            renderTo: 'chart',
             type: 'bar',
             events: {
-                load: function() {
-                    // Add a context menu manually on load
-                    this.container.addEventListener('contextmenu', function(event) {
+                load: function () {
+                    console.log("Chart loaded successfully");
+
+                    // Add right-click (context menu) event listener
+                    this.container.addEventListener('contextmenu', function (event) {
                         event.preventDefault();
-                        ctx.emitEvent(ChartToTSEvent.OpenAxisMenu, {
-                            event: { clientX: event.clientX, clientY: event.clientY },
-                            columnIds: [xAxisTitle],
-                            selectedActions: [
-                                AxisMenuActions.AGGREGATE,
-                                AxisMenuActions.FILTER,
-                                AxisMenuActions.SORT,
-                                AxisMenuActions.TIME_BUCKET,
-                            ],
-                            customActions: [
-                                {
-                                    id: 'custom-action-1',
-                                    label: 'Custom Action',
-                                    onClick: () => handleAxisMenuAction('Custom Action', xAxisTitle),
-                                }
-                            ],
+
+                        const pointerEvent = new PointerEvent('pointerdown', {
+                            clientX: event.clientX,
+                            clientY: event.clientY,
+                            pointerType: 'mouse',
                         });
+
+                        const clickedPoint = globalChartReference.series[0].searchPoint(pointerEvent, true);
+                        if (clickedPoint) {
+                            ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
+                                event: {
+                                    clientX: event.clientX,
+                                    clientY: event.clientY,
+                                },
+                                clickedPoint: {
+                                    tuple: [
+                                        { columnId: chartModel.columns[1].id, value: clickedPoint.category },
+                                        { columnId: chartModel.columns[0].id, value: clickedPoint.series.name },
+                                        { columnId: chartModel.columns[2].id, value: clickedPoint.y },
+                                    ],
+                                },
+                            });
+                        }
                     });
-                }
-            }
+                },
+            },
         },
-        title: {
-            text: ''
-        },
+        
+        title: { text: '' },
         xAxis: {
             categories: dataModel.xAxisLabels,
-            title: {
-                text: xAxisTitle,
-            },
-            gridLineWidth: 0
+            lineWidth: 0,
+            title: { 
+                enabled: true,
+                text: xAxisTitle, // add image here HTML
+                style: {
+                    fontWeight: 'bold',
+                    color: '#000000',
+                },
+                events: {
+                    click: function (e) {
+                        const axisValue = this.value; // Value of the X-axis label
+                        const columnIds = chartModel.config?.chartConfig?.[0]?.dimensions?.[0]?.columns.map(col => col.id) || [];
+                        
+                        ctx.emitEvent(ChartToTSEvent.OpenAxisMenu, {
+                            columnIds: columnIds,
+                            event: {
+                                clientX: e.clientX,
+                                clientY: e.clientY,
+                            },
+                            selectedActions: AxisMenuActions[axisValue],
+                        });
+                    },
+                },
+            } as any,
+            gridLineWidth: 0,
         },
+
         yAxis: {
             min: 0,
             title: {
-                text: yAxisTitle,
-            },
+                useHTML: true, 
+                text: yAxisTitle, //add HTML image here,
+                gridLineWidth: 0,
+                LineWidth: 0,
+                style: {
+                    fontWeight: 'bold',
+                    color: '#000000',
+                },
+                events: {
+                    click: function (e) {
+                        const axisValue = this.value;
+                        const columnIds = chartModel.config?.chartConfig?.[0]?.dimensions?.[2]?.columns.map(col => col.id) || [];
+                        
+                        ctx.emitEvent(ChartToTSEvent.OpenAxisMenu, {
+                            columnIds: columnIds,
+                            event: {
+                                clientX: e.clientX,
+                                clientY: e.clientY,
+                            },
+                            selectedActions: AxisMenuActions[axisValue],
+                        });
+                    },
+                },
+            } as any,
             gridLineWidth: 0,
             labels: {
                 formatter: function () {
-                    return formatNumberWithAbbreviation(this.value as number);
-                }
+                    return formatNumber(this.value as number, numberFormat);
+                },
             },
             stackLabels: {
-                enabled: true,
+                enabled: showTotalStackLabels,
                 formatter: function () {
-                    return formatNumberWithAbbreviation(this.total as number);
+                    return formatNumber(this.total as number, numberFormat);
                 },
-                style: {
-                    color: '#000'
-                }
-            }
+                style: { color: '#000' },
+            },
         },
         legend: {
-            reversed: true
+            align: 'right',
+            verticalAlign: 'top',
+            layout: 'vertical',
+        },
+        credits: {
+            enabled: false,
+        },
+        tooltip: {
+            followPointer: true,
+            padding: 10,
+            shadow: true,
+            backgroundColor: '#3A3F48',
+            borderColor: '#FFD700',
+            borderRadius: 4,
+            borderWidth: 1,
+            headerFormat: '',
+            style: {
+                color: '#FFFFFF',
+                fontSize: '12px',
+                fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                fontWeight: 'normal',
+                textAlign: 'left',
+            },
+            useHTML: true,
+            pointFormatter: function () {
+                const point = this;
+                const options = point.options;
+                const tooltipData = point.options.tooltipdata;
+                debugger;
+                const tooltipArr = chartModel.columns.slice(4);
+                console.log(tooltipData+ '   tooltipArr');
+
+                const pointValue = this.y as number;
+                const stackTotal = this.total as number;
+                const comparisonValue = this.point?.comparisonValue || 0;
+                const changePercent = 
+                    ((pointValue - options.comparisonValue) / options.comparisonValue) * 100;
+                const percentageOfTotal = stackTotal
+                    ? ((pointValue / stackTotal) * 100).toFixed(1)
+                    : 0;
+        
+                const xAxisName = this.series?.chart?.userOptions?.xAxis?.[0]?.title?.text || 'X-Axis';
+                const stackColumnName =
+                    chartModel.config?.chartConfig?.[0]?.dimensions?.[1]?.columns?.[0]?.name || 'Stack';
+                const yAxisName =
+                    this.series?.chart?.userOptions?.yAxis?.[0]?.title?.text || 'Y-Axis';
+                const comparisonName =
+                    chartModel.config?.chartConfig?.[0]?.dimensions?.[3]?.columns?.[0]?.name || 'Comparison';
+
+                
+                debugger;
+                
+                let tooltipHtml = `
+                    <b>${xAxisName}:</b> ${point.category || 'N/A'}<br><br>
+                    <b>${stackColumnName}:</b> ${this.series.name || 'N/A'}<br><br>
+                    <b>${yAxisName}:</b> ${formatNumber(point.y || 0, numberFormat)}<br><br>
+                    <b>${comparisonName}:</b> ${formatNumber(options.comparisonValue || 0, numberFormat)}<br><br>
+                    <b>${changePercent.toFixed(2)}% vs. ${comparisonMeasureName}<br><br>
+                    ${percentageOfTotal}% of Total<br><br>
+                `;
+
+                return tooltipHtml;
+            },
         },
         plotOptions: {
             series: {
                 stacking: 'normal',
                 pointPadding: 0.1,
                 groupPadding: 0.05,
-                borderWidth: 0,
+                pointWidth: 30,
                 dataLabels: {
                     enabled: true,
+                    align: 'centre',
+                    overflow: 'none',
+                    verticalAlign: 'middle',
+                    inside: true,
+                    crop: 'true',
                     formatter: function () {
+                        const point = this.point;
                         const pointValue = this.y as number;
                         const stackTotal = this.total as number;
-                        const percentageOfTotal = ((pointValue / stackTotal) * 100).toFixed(1);
+                        const comparisonValue = this.point?.comparisonValue || 0;
+                        const changePercent = comparisonValue
+                          ? ((pointValue - comparisonValue) / comparisonValue) * 100
+                          : 0;
+                        const percentageOfTotal = stackTotal
+                          ? ((pointValue / stackTotal) * 100).toFixed(1)
+                          : 0;
+            
+                        const fullLabel = `${formatNumber(
+                          pointValue,
+                          numberFormat
+                        )} | ${changePercent.toFixed(
+                          2
+                        )}% vs. ${comparisonMeasureName} | ${percentageOfTotal}% of Ttl.`;
 
-                        return formatNumberWithAbbreviation(pointValue) +' | ' + percentageOfTotal + '% of Ttl.';
-                    },
+                        if(this.point.shapeArgs.height > fullLabel.length * 6){
+                            //check .height value
+                            return fullLabel;
+                        } else {
+                            const availableLength = Math.floor(this.point.shapeArgs.height/6) - 6;
+                            if(availableLength < 3) return;
+                            return fullLabel.slice(0, availableLength) + ' ...';
+                        }
+                      },
                     style: {
                         fontFamily: 'optimo-plain, "Helvetica Neue", Helvetica, Arial, sans-serif',
                         fontWeight: '500',
                         color: '#5e5e5e',
-                        fontSize: '12px',
+                        fontSize: '12.5px',
                         textOutline: '1.6px white',
-                        textShadow: 'rgba(255, 255, 255, 0.6) 0px 0px 2px'
-                    }
-                }
-            }
-        },
-        series: dataModel.series as Highcharts.SeriesOptionsType[]
+                        textShadow: 'rgba(255, 255, 255, 0.6) 0px 0px 2px',
+                    },
+                },
+                point: {
+                    events: {
+                        contextmenu: function (e) {
+                            e.preventDefault();
+                            const point = this;
+                            console.log('1 value: ' + chartModel.columns[0].id + ', Value: ' + point.series.name);
+                            console.log('2 value: ' + chartModel.columns[1].id + ', Value: ' + point.category);
+                            console.log('3 value: ' + chartModel.columns[2].id + ', Value: ' + point.y);
+
+                            ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
+                                event: {
+                                    clientX: e.clientX,
+                                    clientY: e.clientY,
+                                },
+                                clickedPoint: {
+                                    tuple: [
+                                        { columnId: chartModel.columns[1].id, value: point.category },
+                                        { columnId: chartModel.columns[0].id, value: point.series.name },
+                                        { columnId: chartModel.columns[2].id, value: point.y },
+                                    ],
+                                },
+                            });
+                        },
+                    },
+                },
+            },
+        } as any,
+        series: dataModel.series.map(s => ({
+            ...s,
+            data: s.data.map(d => ({
+                y: d.measureValue,
+                
+                comparisonValue: d.comparisonValue,
+            })),
+            color: stackColors[s.name] || s.color, // Assign color based on user input or fallback to default
+        })) as Highcharts.SeriesOptionsType[],
     });
-    console.log("Chart rendered successfully");
 }
 
-function handleAxisMenuAction(action: string, columnId: string) {
-    console.log(`Axis menu action "${action}" triggered for column "${columnId}"`);
-}
 
-// Chart rendering initialization
+
 const renderChart = async (ctx: CustomChartContext) => {
     try {
         ctx.emitEvent(ChartToTSEvent.RenderStart);
-        console.log("Render start event emitted");
-        debugger;
         render(ctx);
     } catch (error) {
-        console.error("Error during render:", error);
+        console.error('Error during render:', error);
     } finally {
         ctx.emitEvent(ChartToTSEvent.RenderComplete);
-        console.log("Render complete event emitted");
     }
 };
 
-// IIFE to initialize the chart
+
+
 (async () => {
-    console.log("Initializing chart context...");
-    try {
-        const ctx = await getChartContext({
-            getDefaultChartConfig: (chartModel) => {
-                console.log("Generating default chart configuration...");
-                debugger;
+    const ctx = await getChartContext({
+        getDefaultChartConfig: (chartModel: ChartModel) => {
+            const cols = chartModel.columns;
+            const stack_column_id = chartModel.config?.chartConfig?.[0]?.dimensions?.[1]?.columns?.[0]?.id; // Fetch stack column ID
 
-                const cols = chartModel.columns;
+            const attributeColumns = cols.filter((col) => col.type === ColumnType.ATTRIBUTE);
+            const measureColumns = cols.filter((col) => col.type === ColumnType.MEASURE);
 
-                const attributeColumns = cols.filter((col) => col.type === ColumnType.ATTRIBUTE);
-                const measureColumns = cols.filter((col) => col.type === ColumnType.MEASURE);
+            if (attributeColumns.length < 2) {
+                throw new Error('Insufficient attribute columns for x and stack axes.');
+            }
+            if (measureColumns.length < 2) {
+                throw new Error('Insufficient measure columns for y and comparison axes.');
+            }
 
-                return [
-                    {
-                        key: 'column',
-                        dimensions: [
-                            { key: 'x', columns: [attributeColumns[0]] },
-                            { key: 'stack', columns: [attributeColumns[1]] },
-                            { key: 'y', columns: measureColumns.slice(0, 1) },
-                        ],
-                    },
-                ];
-            },
-
-            getQueriesFromChartConfig: (chartConfig: ChartConfig[]): Array<Query> => {
-                console.log("Generating queries from chart configuration:", chartConfig);
-                return chartConfig.map((config) =>
-                    _.reduce(
-                        config.dimensions,
-                        (acc: Query, dimension) => ({
-                            queryColumns: [...acc.queryColumns, ...dimension.columns],
-                        }),
-                        { queryColumns: [] } as Query,
-                    )
-                );
-            },
-
-            renderChart,
-            chartConfigEditorDefinition: [
+            return [
                 {
                     key: 'column',
-                    label: 'Stacked Bar Chart Configuration',
-                    descriptionText: 'Select attributes for x-axis, stack, and a measure for the y-axis.',
-                    columnSections: [
-                        {
-                            key: 'x',
-                            label: 'X-Axis Attribute',
-                            allowAttributeColumns: true,
-                            allowMeasureColumns: false,
-                            maxColumnCount: 1,
-                        },
-                        {
-                            key: 'stack',
-                            label: 'Stack Attribute',
-                            allowAttributeColumns: true,
-                            allowMeasureColumns: false,
-                            maxColumnCount: 1,
-                        },
-                        {
-                            key: 'y',
-                            label: 'Y-Axis Measure',
-                            allowAttributeColumns: false,
-                            allowMeasureColumns: true,
-                            maxColumnCount: 1,
-                        },
+                    dimensions: [
+                        { key: 'x', columns: [attributeColumns[0]] },
+                        { key: 'stack', columns: [attributeColumns[1]] },
+                        { key: 'y', columns: measureColumns.slice(0, 1) },
+                        { key: 'comparison', columns: measureColumns.slice(1, 2) },
                     ],
                 },
-            ],
-            visualPropEditorDefinition: {
-                elements: [
+            ];
+        },
+        getQueriesFromChartConfig: (chartConfig: ChartConfig[]): Array<Query> => {
+            return chartConfig.map((config) =>
+                config.dimensions.reduce(
+                    (acc: Query, dimension) => ({
+                        queryColumns: [...acc.queryColumns, ...dimension.columns],
+                    }),
+                    { queryColumns: [] } as Query
+                )
+            );
+        },
+        renderChart,
+        chartConfigEditorDefinition: [
+            {
+                key: 'column',
+                label: 'Bar Chart Configuration',
+                descriptionText:
+                    'Configure the chart by selecting attributes for X-axis, stack, measure, and comparison.',
+                columnSections: [
                     {
-                        key: 'xAxisTitle',
-                        type: 'text',
-                        defaultValue: 'X Axis',
-                        label: 'X-Axis Title',
+                        key: 'x',
+                        label: 'X-Axis Attribute',
+                        allowAttributeColumns: true,
+                        allowMeasureColumns: false,
+                        maxColumnCount: 1,
                     },
                     {
-                        key: 'yAxisTitle',
-                        type: 'text',
-                        defaultValue: 'Y Axis',
-                        label: 'Y-Axis Title',
+                        key: 'stack',
+                        label: 'Stack Attribute',
+                        allowAttributeColumns: true,
+                        allowMeasureColumns: false,
+                        maxColumnCount: 1,
                     },
                     {
-                        key: 'numberFormat',
-                        type: 'text',
-                        defaultValue: '0,0',
-                        label: 'Number Format',
+                        key: 'y',
+                        label: 'Y-Axis Measure',
+                        allowAttributeColumns: false,
+                        allowMeasureColumns: true,
+                        maxColumnCount: 1,
+                    },
+                    {
+                        key: 'comparison',
+                        label: 'Comparison Measure',
+                        allowAttributeColumns: false,
+                        allowMeasureColumns: true,
+                        maxColumnCount: 1,
+                    },
+                    {
+                        key: 'Tooltip',
+                        label: 'Tooltip Columns',
+                        allowAttributeColumns: true,
+                        allowMeasureColumns: true,
+                        allowTimeSeriesColumns: false
                     },
                 ],
             },
-        });
+        ],
+        visualPropEditorDefinition: {
+            elements: [
+                {
+                    key: 'showTotalStackLabels',
+                    type: 'checkbox',
+                    defaultValue: true, // Total stack labels visible by default
+                    label: 'Show Total Stack Labels',
+                },
+                {
+                    key: 'numberFormat',
+                    type: 'text',
+                    defaultValue: '0.[0]a',
+                    label: 'Number Format',
+                },
+            ],
+        },
+    });
 
-        console.log("Context initialized successfully:", ctx);
-        renderChart(ctx);
-    } catch (error) {
-        console.error("Error during chart context initialization:", error);
-    }
+    renderChart(ctx);
 })();
