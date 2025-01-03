@@ -75,17 +75,17 @@ function getDataModel(chartModel: ChartModel) {
     const xAxisLabels = _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)]));
     const seriesData = _.groupBy(dataArr.dataValue, row => row[dataArr.columns.indexOf(seriesColumn.id)]);
 
-    const dataModel = dataArr.dataValue.map((row) => {
-        const tooltipData = tooltipArr.map((col) => {
-            const columnIndex = dataArr.columns.findIndex(c => c === col.id);
-            return {
-                columnName: col.name,
-                value: row ? row[columnIndex] : 'N/A',
-            };
-        });
+    // const dataModel = dataArr.dataValue.map((row) => {
+    //     const tooltipData = tooltipArr.map((col) => {
+    //         const columnIndex = dataArr.columns.findIndex(c => c === col.id);
+    //         return {
+    //             columnName: col.name,
+    //             value: row ? row[columnIndex] : 'N/A',
+    //         };
+    //     });
 
-        return { tooltipData };
-    });
+    //     return { tooltipData };
+    // });
 
 
     const series = Object.keys(seriesData).map(seriesName => {
@@ -93,12 +93,12 @@ function getDataModel(chartModel: ChartModel) {
             const row = seriesData[seriesName].find(item => item[dataArr.columns.indexOf(xAxisColumn.id)] === label);
             const measureValue = row ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) : 0;
             const comparisonValue = row ? parseFloat(row[dataArr.columns.indexOf(comparisonColumn.id)]) : 0;
-            const tooltipData = tooltipArr.map((col) => ({
-                columnName: col.name,
-                value: row[dataArr.columns.findIndex(c => c === col.id)],
-            }));
+            // const tooltipData = tooltipArr.map((col) => ({
+            //     columnName: col.name,
+            //     value: row[dataArr.columns.findIndex(c => c === col.id)],
+            // }));
 
-            return { measureValue, comparisonValue,tooltipData };
+            return { measureValue, comparisonValue };
         });
         return {
             name: seriesName,
@@ -139,54 +139,12 @@ function getColorPickerFieldsForStackValues(stackValues: string[]) {
 }
 
 
-function generateVisualPropEditor(chartModel: ChartModel) {
-    const stackValues = getStackAttributeValues(chartModel);
-
-    return {
-        elements: [
-            {
-                key: 'showTotalStackLabels',
-                type: 'checkbox',
-                defaultValue: true,
-                label: 'Show Total Stack Labels',
-            },
-            {
-                key: 'numberFormat',
-                type: 'text',
-                defaultValue: '0.[0]a',
-                label: 'Number Format',
-            },
-            ...getColorPickerFieldsForStackValues(stackValues), // Add dynamic color pickers
-        ],
-    };
-}
-
-function mapColorsToStackValues(stackValues: string[], visualProps: VisualProps) {
-    const stackColors: Record<string, string> = {};
-    stackValues.forEach((value) => {
-        const colorKey = `stackColor_${value}`;
-        if (visualProps[colorKey]) {
-            stackColors[value] = visualProps[colorKey];
-        }
-    });
-    return stackColors;
-}
-
-
 function getComparisonColumnName(chartModel: ChartModel): string {
     const comparisonColumn = chartModel.config?.chartConfig?.[0]?.dimensions.find(
         (dim) => dim.key === 'comparison'
     )?.columns[0];
     return comparisonColumn?.name || 'Comparison';
 }
-
-
-function updateStackColors(ctx: CustomChartContext, updatedColors: Record<string, string>) {
-    const visualProps = ctx.getChartModel().visualProps as VisualProps;
-    visualProps.stackColors = { ...visualProps.stackColors, ...updatedColors };
-    render(ctx); // Re-render the chart with updated colors
-}
-
 
 
 function getAxisTitles(chartModel: ChartModel): { xAxisTitle: string, yAxisTitle: string, comparisonMeasureTitle: string } {
@@ -227,11 +185,11 @@ function render(ctx: CustomChartContext) {
 
     console.log('stack_column_id' + stack_column_id);
 
-    const tooltipArr = chartModel.config?.chartConfig?.[0]?.dimensions?.[4]?.columns;
+    // const tooltipArr = chartModel.config?.chartConfig?.[0]?.dimensions?.[4]?.columns;
 
-    // Merging label and tooltip arrays as required
-    const tooltipArrFinal = _.concat(tooltipArr );
-    console.log('tooltip array'+tooltipArr);
+    // // Merging label and tooltip arrays as required
+    // const tooltipArrFinal = _.concat(tooltipArr );
+    // console.log('tooltip array'+tooltipArr);
 
     if (globalChartReference) {
         globalChartReference.destroy();
@@ -376,10 +334,10 @@ function render(ctx: CustomChartContext) {
             pointFormatter: function () {
                 const point = this;
                 const options = point.options;
-                const tooltipData = point.options.tooltipdata;
+                // const tooltipData = point.options.tooltipdata;
                 debugger;
-                const tooltipArr = chartModel.columns.slice(4);
-                console.log(tooltipData+ '   tooltipArr');
+                // const tooltipArr = chartModel.columns.slice(4);
+                // console.log(tooltipData+ '   tooltipArr');
 
                 const pointValue = this.y as number;
                 const stackTotal = this.total as number;
@@ -493,7 +451,7 @@ function render(ctx: CustomChartContext) {
         series: dataModel.series.map(s => ({
             ...s,
             data: s.data.map(d => ({
-                y: d.measureValue,
+                y: d.measureValue || 0,
                 
                 comparisonValue: d.comparisonValue,
             })),
