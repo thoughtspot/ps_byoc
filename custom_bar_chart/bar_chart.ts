@@ -213,6 +213,18 @@ function render(ctx: CustomChartContext) {
     const stackColors = visualProps.stackColors || {};
     const stack_column_id = chartModel.config?.chartConfig?.[0]?.dimensions?.[1]?.columns?.[0]?.id;
 
+
+        // Get user-defined stack colors
+    const stackColorsInput = visualProps?.stackColors || '';
+    const stackColorsArray = stackColorsInput.split(',').map(color => color.trim());
+        
+        // Assign colors to stack values
+    const stackValues = [...new Set(dataModel.series.map(series => series.name))]; // Unique stack values
+    const stackColorsMap = stackValues.reduce((map, stackValue, index) => {
+    map[stackValue] = stackColorsArray[index] || '#CCCCCC'; // Default to gray if not enough colors
+        return map;
+    }, {} as Record<string, string>);
+
     console.log('stack_column_id' + stack_column_id);
 
     const tooltipArr = chartModel.config?.chartConfig?.[0]?.dimensions?.[4]?.columns;
@@ -485,7 +497,7 @@ function render(ctx: CustomChartContext) {
                 
                 comparisonValue: d.comparisonValue,
             })),
-            color: stackColors[s.name] || s.color, // Assign color based on user input or fallback to default
+            color: stackColorsMap[s.name], // Apply user-defined color // Assign color based on user input or fallback to default
         })) as Highcharts.SeriesOptionsType[],
     });
 }
@@ -602,6 +614,11 @@ const renderChart = async (ctx: CustomChartContext) => {
                     type: 'text',
                     defaultValue: '0.[0]a',
                     label: 'Number Format',
+                },
+                {
+                    key: 'stackColors', // New text box for stack colors
+                    type: 'text',
+                    label: 'Stack Colors (Comma-separated HEX)',
                 },
             ],
         },
