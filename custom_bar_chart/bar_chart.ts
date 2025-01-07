@@ -24,6 +24,12 @@ declare module 'highcharts' {
     }
 }
 
+declare module 'highcharts' {
+    interface Point {
+        tooltipData?: Array<{ columnName: string; value: any }>;
+    }
+}
+
 interface VisualProps {
     numberFormat?: string;
     stackColors?: Record<string, string>; // Stack colors
@@ -61,83 +67,75 @@ function getBackgroundColorForSeries(seriesName: string): string {
 }
 
 function getDataModel(chartModel: ChartModel) {
-    const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
-    const dataArr: DataPointsArray = chartModel.data?.[0]?.data ?? { columns: [], dataValue: [] };
+    const configDimensions =
+        chartModel.config?.chartConfig?.[1]?.dimensions ??
+        chartModel.config?.chartConfig?.[0]?.dimensions ??
+        [];
 
+    const dataArr: DataPointsArray = chartModel.data?.[chartModel.data?.length - 1]?.data ?? { columns: [], dataValue: [] };
+
+    // Defensive checks for all columns
     const xAxisColumn = configDimensions?.[0]?.columns?.[0];
     const seriesColumn = configDimensions?.[1]?.columns?.[0];
     const measureColumn = configDimensions?.[2]?.columns?.[0];
     const comparisonColumn = configDimensions?.[3]?.columns?.[0];
-    const tooltipArr = configDimensions?.[0]?.columns;
+    const tooltipArr = configDimensions?.[4]?.columns || [];
 
-    // Merging label and tooltip arrays as require
+    // Log for debugging
+    console.log("Config Dimensions:", configDimensions);
+    console.log("Tooltip Columns:", tooltipArr);
 
-    const xAxisLabels = _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)]));
-    const seriesData = _.groupBy(dataArr.dataValue, row => row[dataArr.columns.indexOf(seriesColumn.id)]);
+    const xAxisLabels = _.uniq(
+        dataArr.dataValue.map((row) =>
+            row[dataArr.columns.indexOf(xAxisColumn?.id)] ?? "N/A"
+        )
+    );
 
-    // const dataModel = dataArr.dataValue.map((row) => {
-    //     const tooltipData = tooltipArr.map((col) => {
-    //         const columnIndex = dataArr.columns.findIndex(c => c === col.id);
-    //         return {
-    //             columnName: col.name,
-    //             value: row ? row[columnIndex] : 'N/A',
-    //         };
-    //     });
+    const seriesData = _.groupBy(
+        dataArr.dataValue,
+        (row) => row[dataArr.columns.indexOf(seriesColumn?.id)]
+    );
 
-    //     return { tooltipData };
-    // });
+    const series = Object.keys(seriesData).map((seriesName) => {
+        const data = xAxisLabels.map((label) => {
+            const row = seriesData[seriesName]?.find(
+                (item) =>
+                    item[dataArr.columns.indexOf(xAxisColumn?.id)] === label
+            );
+            const measureValue = row
+                ? parseFloat(row[dataArr.columns.indexOf(measureColumn?.id)])
+                : 0;
+            const comparisonValue = row
+                ? parseFloat(
+                      row[dataArr.columns.indexOf(comparisonColumn?.id)]
+                  )
+                : 0;
 
+            // Tooltip Data Handling with Validation
+            const tooltipData = tooltipArr.map((col) => {
+                const columnIndex = dataArr.columns.findIndex((c) => c === col.id);
+                return {
+                    columnName: col.name,
+                    value: row ? row[columnIndex] ?? "N/A" : "N/A", // Handle missing data
+                };
+            });
 
-    const series = Object.keys(seriesData).map(seriesName => {
-        const data = xAxisLabels.map(label => {
-            const row = seriesData[seriesName].find(item => item[dataArr.columns.indexOf(xAxisColumn.id)] === label);
-            const measureValue = row ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) : 0;
-            const comparisonValue = row ? parseFloat(row[dataArr.columns.indexOf(comparisonColumn.id)]) : 0;
-            // const tooltipData = tooltipArr.map((col) => ({
-            //     columnName: col.name,
-            //     value: row[dataArr.columns.findIndex(c => c === col.id)],
-            // }));
-
-            return { measureValue, comparisonValue };
+            return { measureValue, comparisonValue, tooltipData };
         });
+
         return {
             name: seriesName,
             data,
             color: getBackgroundColorForSeries(seriesName),
-            stack: 'stack1',
+            stack: "stack1",
         };
     });
-
-    const stackLabels = Object.keys(seriesData);
 
     return {
         xAxisLabels,
         series,
-        stackLabels,
     };
 }
-
-function getStackAttributeValues(chartModel: ChartModel): string[] {
-    const configDimensions = chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
-    const stackAttributeColumn = configDimensions?.[1]?.columns?.[0];
-    const dataArr: DataPointsArray = chartModel.data?.[0]?.data ?? { columns: [], dataValue: [] };
-
-    if (!stackAttributeColumn) return [];
-
-    const stackAttributeIndex = dataArr.columns.indexOf(stackAttributeColumn.id);
-    const stackValues = _.uniq(dataArr.dataValue.map((row) => row[stackAttributeIndex]));
-    return stackValues.filter((value) => value !== undefined && value !== null); // Filter valid values
-}
-
-function getColorPickerFieldsForStackValues(stackValues: string[]) {
-    return stackValues.map((value) => ({
-        type: 'colorpicker',
-        key: `stackColor_${value}`,
-        label: `${value} Color`,
-        description: `Pick a color for ${value}`,
-    }));
-}
-
 
 function getComparisonColumnName(chartModel: ChartModel): string {
     const comparisonColumn = chartModel.config?.chartConfig?.[0]?.dimensions.find(
@@ -184,12 +182,6 @@ function render(ctx: CustomChartContext) {
     }, {} as Record<string, string>);
 
     console.log('stack_column_id' + stack_column_id);
-
-    // const tooltipArr = chartModel.config?.chartConfig?.[0]?.dimensions?.[4]?.columns;
-
-    // // Merging label and tooltip arrays as required
-    // const tooltipArrFinal = _.concat(tooltipArr );
-    // console.log('tooltip array'+tooltipArr);
 
     if (globalChartReference) {
         globalChartReference.destroy();
@@ -334,10 +326,8 @@ function render(ctx: CustomChartContext) {
             pointFormatter: function () {
                 const point = this;
                 const options = point.options;
-                // const tooltipData = point.options.tooltipdata;
                 debugger;
-                // const tooltipArr = chartModel.columns.slice(4);
-                // console.log(tooltipData+ '   tooltipArr');
+                const tooltipData = point.tooltipData;
 
                 const pointValue = this.y as number;
                 const stackTotal = this.total as number;
@@ -360,13 +350,23 @@ function render(ctx: CustomChartContext) {
                 debugger;
                 
                 let tooltipHtml = `
-                    <b>${xAxisName}:</b> ${point.category || 'N/A'}<br><br>
+                    <br><b>${xAxisName}:</b> ${point.category || 'N/A'}<br><br>
                     <b>${stackColumnName}:</b> ${this.series.name || 'N/A'}<br><br>
                     <b>${yAxisName}:</b> ${formatNumber(point.y || 0, numberFormat)}<br><br>
                     <b>${comparisonName}:</b> ${formatNumber(options.comparisonValue || 0, numberFormat)}<br><br>
                     <b>${changePercent.toFixed(2)}% vs. ${comparisonMeasureName}<br><br>
                     ${percentageOfTotal}% of Total<br><br>
                 `;
+
+                console.log(tooltipData + ' within Tooltip');
+
+                if (tooltipData && Array.isArray(tooltipData)) {
+                    tooltipData.forEach((data) => {
+                        tooltipHtml += `<b>${data.columnName}:</b> ${formatNumber(data.value || 'N/A',numberFormat)}<br><br>`;
+                    });
+                } else {
+                    tooltipHtml+= null;
+                }
 
                 return tooltipHtml;
             },
@@ -454,6 +454,7 @@ function render(ctx: CustomChartContext) {
                 y: d.measureValue || 0,
                 
                 comparisonValue: d.comparisonValue,
+                tooltipData: d.tooltipData,
             })),
             color: stackColorsMap[s.name], // Apply user-defined color // Assign color based on user input or fallback to default
         })) as Highcharts.SeriesOptionsType[],
@@ -499,6 +500,8 @@ const renderChart = async (ctx: CustomChartContext) => {
                         { key: 'stack', columns: [attributeColumns[1]] },
                         { key: 'y', columns: measureColumns.slice(0, 1) },
                         { key: 'comparison', columns: measureColumns.slice(1, 2) },
+                        { key: 'Tooltip', columns: measureColumns.slice(2)}
+
                     ],
                 },
             ];
