@@ -250,23 +250,15 @@ function render(ctx: CustomChartContext) {
                     formatter: function () {
                         const point: Highcharts.PointOptionsObject = this.point;  // Get the current point for labeling
                         
-                        /*let labelHtml = `<tspan fill="white" stroke="white" stroke-width="1.2" stroke-linejoin="round" 
-                                            style="display: inline-block; text-align: center; font-size: 13px; 
-                                            font-weight: 900; color: rgb(0,0,0);"
-                                            font-face="Helvetica">${point.name}</tspan><br>`;*/
-
-                        
-                        let labelHtml=point.name + "<br>"   ;               
+                        let labelHtml = point.name + "<br>"   ;               
                         
                         // Loop through labelData and append label content if applicable
                         if (this.point.index < numberOfLabels) {
                             point.labelData?.forEach(labelCol => {
-                                /*labelHtml += `<tspan fill="white" stroke="white" stroke-width="1.2" stroke-linejoin="round" 
-                                                style="display: inline-block; text-align: center; font-size: 13px; 
-                                                font-weight: 200; color: rgb(0,0,0);">
-                                                ${labelCol.columnName}: ${numberFormatter(labelCol.value, userNumberFormat)}
-                                              </tspan><br>`;*/
-                                labelHtml+=labelCol.columnName+": " +numberFormatter(labelCol.value, userNumberFormat)+"<br>";
+                                // labelHtml+=labelCol.columnName+": " +numberFormatter(labelCol.value, userNumberFormat)+"<br>";
+                                labelHtml += `<tspan onclick="console.log('Clicked on: ${labelCol.columnName}')" 
+                                pointer-events="auto"> 
+                                ${labelCol.columnName}: ${numberFormatter(labelCol.value, userNumberFormat)} </tspan><br>`;
                             });
                         }
                         return labelHtml;
@@ -279,6 +271,28 @@ function render(ctx: CustomChartContext) {
                         textOutline: '1.6px white',
                         textShadow: 'rgba(255, 255, 255, 0.6) 0px 0px 2px'
                     },
+                    events: {
+                        click: function (event) {
+                            console.log('Label clicked:', this.point.name);
+                            // Add any additional logic here if required
+                        },
+                        contextmenu: function (event) {
+                            event.preventDefault(); // Prevent browser's default context menu
+                            const point = this.point;
+                
+                            // Emit the ThoughtSpot context menu event
+                            ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
+                                event: getParsedEvent(event),
+                                clickedPoint: {
+                                    tuple: [
+                                        { columnId: configDimensions?.[0]?.columns?.[0]?.id, value: point.name },
+                                        { columnId: configDimensions?.[1]?.columns?.[0]?.id, value: point.value },
+                                        { columnId: configDimensions?.[2]?.columns?.[0]?.id, value: point.colorValue }
+                                    ],
+                                },
+                            });
+                        }
+                    }
                 },
                 point: {
                     events: {
