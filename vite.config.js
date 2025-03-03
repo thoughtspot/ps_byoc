@@ -11,6 +11,7 @@ export default defineConfig({
         ),
         heatmap_chart: resolve(__dirname, 'heatmap_chart/index.html'),
         custom_bar_chart: resolve(__dirname, 'custom_bar_chart/index.html'),
+        kpi_comparison_chart_dev: resolve(__dirname, 'kpi_comparison_chart_dev/index.html'),
         main: resolve(__dirname, 'index.html'),
 
       },
