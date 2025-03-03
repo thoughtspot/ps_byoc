@@ -6,18 +6,10 @@ import {
 import _ from 'lodash';
 import numeral from 'numeral';
 
-const availableColor = ['red', 'green', 'blue'];
 
 const visualPropKeyMap = {
-  0: 'color',
-  1: 'accordion.Color2',
-  2: 'accordion.datalabels',
-};
-
-const exampleClientState = {
-  id: 'chart-id',
-  name: 'custom-kpi-chart',
-  library: 'chartJs',
+  0: 'numberFormat',
+  1: 'Variance',
 };
 
 let userNumberFormat = '0.0'; // Default format if not specified by the user
@@ -47,71 +39,87 @@ function getDataForColumn(column, dataArr) {
   return _.map(dataArr.dataValue, (row) => row[idx]);
 }
 
-function calculateKpiValues(chartModel) {
+function calculateKpiValues(chartModel, showVariance) {
+  showVariance = chartModel.visualProps.Variance;
+  console.log('Variance setting in KPI Calculation:', showVariance); // ✅ Logs before calculations
+
   const dataArr = chartModel.data?.[0]?.data ?? [];
   const measureColumns = _.filter(
-    chartModel.columns,
-    (col) => col.type === ColumnType.MEASURE
+      chartModel.columns,
+      (col) => col.type === ColumnType.MEASURE
   );
 
   if (measureColumns.length === 0 || dataArr.length === 0)
-    return { mainKpiValue: 0, measures: [] };
+      return { mainKpiValue: 0, measures: [] };
 
-  const configDimensions = chartModel.config?.chartConfig?.[1]?.dimensions ?? chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
+  const configDimensions = chartModel.config?.chartConfig?.[1]?.dimensions ?? 
+                           chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
 
-  // Get the main KPI measure column (first measure in the x-axis)
   const mainKpiColumn = configDimensions.find((it) => it.key === 'x');
-
-  // Retrieve the ID of the main KPI column to exclude from comparison measures
   const mainKpiColumnId = mainKpiColumn?.columns?.[0]?.id;
-  
-  // Calculate the main KPI value
   const mainKpiValue = mainKpiColumnId ? _.sum(getDataForColumn(mainKpiColumn.columns[0], dataArr)) : 0;
 
-  // Filter out comparison measures that are not part of the visualized dimensions
-  const comparisonMeasures = measureColumns.filter((col) => {
-    return col.id !== mainKpiColumnId && configDimensions.some(dimension => dimension.columns.some(c => c.id === col.id));
-  });
+  const comparisonMeasures = measureColumns.filter((col) =>
+      col.id !== mainKpiColumnId &&
+      configDimensions.some(dimension => dimension.columns.some(c => c.id === col.id))
+  );
 
   const measures = comparisonMeasures.map((col) => {
-    const value = _.sum(getDataForColumn(col, dataArr));
-    const change =
-      mainKpiValue !== 0 ? ((mainKpiValue - value) / Math.abs(value)) * 100 : 0;
-    return {
-      label: col.name,
-      value,
-      change,
-    };
+      const value = _.sum(getDataForColumn(col, dataArr));
+
+      const variance = mainKpiValue - value; // ✅ Compute variance correctly
+
+      const change = showVariance 
+          ? mainKpiValue - value // ✅ Show absolute variance if checked
+          : mainKpiValue !== 0 ? ((mainKpiValue - value) / Math.abs(value)) * 100 : 0; // ✅ Show % change if unchecked
+
+      const bps = (change * 100); // ✅ Compute BPS
+
+      return { label: col.name, value, change,variance,bps };
   });
 
   return { mainKpiValue, measures };
 }
 
-function updateKpiContainer(measures, mainKpiValue, format) {
+
+function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, isBpsChecked) {
   document.getElementById('mainKpiValue').innerText = numberFormatter(
     mainKpiValue,
     format
   );
   const kpiContainer = document.getElementById('kpiMeasures');
   kpiContainer.innerHTML = '';
+
   measures.forEach((measure) => {
-    const changeClass = measure.change > 0 ? 'kpi-positive' : 'kpi-negative';
-    const arrow = measure.change > 0 ? '↑' : '↓';
-    const displayChange = Math.abs(measure.change).toFixed(1); // Remove negative sign
+    const changeValue = isVarianceChecked
+      ? measure.variance  // Show absolute variance if checked
+      : isBpsChecked
+      ? measure.bps // ✅ Show BPS if checked
+      : measure.change; // Show percentage change otherwise
+
+    const changeClass = changeValue > 0 ? 'kpi-positive' : 'kpi-negative';
+    const arrow = changeValue > 0 ? '↑' : '↓';
+
+    // Format display text
+    const displayChange = isVarianceChecked
+      ? numberFormatter(changeValue, format)  // Just number if variance is checked
+      : isBpsChecked
+      ? numberFormatter(changeValue, format) + " bps" // ✅ Append BPS label
+      : Math.abs(changeValue).toFixed(1) + '%'; // % sign if change
+
     const measureDiv = document.createElement('div');
     measureDiv.classList.add('kpi-measure');
+
     measureDiv.innerHTML = `
-            <span class="${changeClass}">${arrow} ${displayChange}%</span>
-            <span class="comparisonKPIAbsoluteValue">(${numberFormatter(
-              measure.value,
-              format
-            )})</span> <span class="comparisonKPIName">vs. ${
-      measure.label
-    }</span>
-        `;
+      <span class="${changeClass}">${arrow} ${displayChange}</span>
+      <span class="comparisonKPIAbsoluteValue">(${numberFormatter(measure.value, format)})</span> 
+      <span class="comparisonKPIName">vs. ${measure.label}</span>
+    `;
+
     kpiContainer.appendChild(measureDiv);
   });
 }
+
 
 function insertCustomFont(customFontFaces) {
   customFontFaces.forEach((it) => {
@@ -128,16 +136,15 @@ async function render(ctx) {
     insertCustomFont(appConfig.styleConfig.customFontFaces);
   }
 
-  // Use the current number format setting from the visualProps
+  // Read number format and variance checkbox value
   const numberFormat = chartModel.visualProps.numberFormat || userNumberFormat;
+  const isVarianceChecked = chartModel.visualProps.Variance || false;
+  const isBpsChecked = chartModel.visualProps.bps || false;
 
   const kpiValues = calculateKpiValues(chartModel);
-  updateKpiContainer(
-    kpiValues.measures,
-    kpiValues.mainKpiValue,
-    numberFormat
-  );
+  updateKpiContainer(kpiValues.measures, kpiValues.mainKpiValue, numberFormat, isVarianceChecked, isBpsChecked);
 }
+
 
 const renderChart = async (ctx) => {
   try {
@@ -219,6 +226,18 @@ const renderChart = async (ctx) => {
           defaultValue: '0.0',
           label: 'Number Format',
         },
+        {
+          key: 'Variance',
+          type: 'checkbox',
+          defaultValue: false,
+          label: 'Variance',
+        },
+        {
+          key: 'bps',
+          type: 'checkbox',
+          defaultValue: false,
+          label: 'bps',
+        },
       ],
     },
     onPropChange: (propKey, propValue) => {
@@ -226,6 +245,12 @@ const renderChart = async (ctx) => {
         userNumberFormat = propValue || '0.0';
         console.log('Number format updated to:', userNumberFormat); // Debugging line
         renderChart(ctx); // Re-render the chart with the new format
+      }  else if (propKey === 'Variance') {
+        console.log('Variance checkbox state changed:', propValue);
+        renderChart(ctx);
+      }  else if (propKey === 'bps') {
+        console.log('BPS checkbox state changed:', propValue);
+        renderChart(ctx);
       } else if (propKey === 'columnOrder' || propKey.startsWith('column')) {
         renderChart(ctx);
       }

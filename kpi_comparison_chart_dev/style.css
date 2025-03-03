@@ -19,15 +19,16 @@ body {
 }
 
 .kpi-value {
-  font-size: 40px; /* Adjust font size to match the image */
+  font-size: clamp(26px, 3vw, 40px);
   font-weight: 550; /* Adjust font weight to match the image */
   color: #1c2330;
   margin-bottom: 20px;
   line-height: 47px;
+  /*write a media query here,*/
 }
 
 .kpi-comparison {
-  font-size: 16px;
+  font-size: clamp(11px, 3vw, 16px);
   color: #777e8b;
   width: 100%;
   font-family: Optimo-Plain, "Helvetica Neue", Helvetica, Arial, sans-serif;

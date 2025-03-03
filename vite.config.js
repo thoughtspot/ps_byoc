@@ -16,4 +16,13 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    host: '0.0.0.0', // Allows access from external devices
+    port: 5173, // Ensure this matches your dev server port
+    allowedHosts: [
+      '2959-2406-7400-10b-a0f3-acde-eb00-81a2-d7b1.ngrok-free.app' // Add your ngrok URL here
+    ],
+    strictPort: true, // Ensures Vite does not pick a random port
+    cors: true // Enable CORS if needed
+  }
 });

@@ -181,6 +181,10 @@ function render(ctx: CustomChartContext) {
         return map;
     }, {} as Record<string, string>);
 
+        // Sort series alphabetically by name
+    const sortedSeries = dataModel.series.sort((a, b) => a.name.localeCompare(b.name));
+
+
     console.log('stack_column_id' + stack_column_id);
 
     if (globalChartReference) {
@@ -448,7 +452,7 @@ function render(ctx: CustomChartContext) {
                 },
             },
         } as any,
-        series: dataModel.series.map(s => ({
+        series: sortedSeries.map(s => ({
             ...s,
             data: s.data.map(d => ({
                 y: d.measureValue || 0,
