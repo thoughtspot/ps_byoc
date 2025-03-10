@@ -81,53 +81,12 @@ body {
   color: #000000;
 }
 
-/* ✅ Print & PDF Export Optimization */
+/* ✅ PDF Export Optimization */
 @media print {
-  /* ✅ Force white background for PDFs */
-  body {
-    background-color: white !important;
-    color: black !important;
-  }
-
-  /* ✅ Adjust KPI card for smaller tiles in PDF */
-  .kpi-card {
-    width: 100% !important;
-    height: auto !important;
-    padding: 10px;
-    font-size: 12px !important;
-    text-align: left !important;
-  }
-
-  /* ✅ Scale font sizes dynamically */
   .kpi-value {
-    font-size: 20px !important;
-    font-weight: bold !important;
+    font-size: 20px !important; /* Fixed size for PDFs */
   }
-
   .kpi-comparison {
-    font-size: 10px !important;
-  }
-
-  /* ✅ Ensure table and chart do not distort */
-  #chartContainer, .highcharts-container {
-    width: 100% !important;
-    height: auto !important;
-  }
-
-  /* ✅ Hide unnecessary elements in PDF */
-  .measure-button, .interactive-elements {
-    display: none !important;
-  }
-
-  /* ✅ Prevent text from wrapping awkwardly */
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-  }
-
-  th, td {
-    font-size: 12px !important;
-    padding: 5px !important;
-    text-align: left !important;
+    font-size: 12px !important; /* Fixed size for PDFs */
   }
 }
