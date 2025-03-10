@@ -14,15 +14,15 @@ body {
   height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* Align items to the top */
+  justify-content: flex-start;
   align-items: flex-start;
-  background-color: #FFFFFF; /* Set background color to white */
+  background-color: #FFFFFF;
 }
 
 /* ✅ KPI Value */
 .kpi-value {
   font-size: clamp(32px, 3vw, 40px);
-  font-weight: 550; /* Adjust font weight */
+  font-weight: 550;
   color: #1c2330;
   margin-bottom: 20px;
   line-height: 47px;
@@ -83,10 +83,67 @@ body {
 
 /* ✅ PDF Export Optimization */
 @media print {
+  body {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    background-color: #FFFFFF !important; /* Ensure white background for printing */
+  }
+
+  .kpi-card {
+    width: 100%;
+    height: auto;
+    padding: 0;
+    margin: 0;
+  }
+
   .kpi-value {
-    font-size: 20px !important; /* Fixed size for PDFs */
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    margin-bottom: 0px !important;
+    line-height: normal;
   }
+
   .kpi-comparison {
-    font-size: 8px !important; /* Fixed size for PDFs */
+    font-size: 8px !important;
+    line-height: normal;
   }
+
+  .kpi-measure {
+    font-size: 8px !important;
+    width: 100%;
+    margin-bottom: 0px !important;
+  }
+
+  .kpi-change {
+    font-size: 8px !important;
+    margin-right: 0px !important;
+  }
+
+  .kpi-value-and-label {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .kpi-positive {
+    color: green !important;
+  }
+
+  .kpi-negative {
+    color: red !important;
+  }
+
+  .arrow {
+    font-size: 8px !important;
+  }
+
+  .comparisonKPIAbsoluteValue {
+    font-size: 8px !important;
+    padding-right: 0px !important;
+  }
+
 }
