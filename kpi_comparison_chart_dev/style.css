@@ -87,6 +87,6 @@ body {
     font-size: 20px !important; /* Fixed size for PDFs */
   }
   .kpi-comparison {
-    font-size: 12px !important; /* Fixed size for PDFs */
+    font-size: 8px !important; /* Fixed size for PDFs */
   }
 }
