@@ -8,6 +8,7 @@ body {
   font-family: Optimo-Plain, "Helvetica Neue", Helvetica, Arial, sans-serif; /* Set the font to Helvetica */
 }
 
+/* ✅ KPI Card Styling */
 .kpi-card {
   width: auto;
   height: auto;
@@ -18,64 +19,115 @@ body {
   background-color: #FFFFFF; /* Set background color to white */
 }
 
+/* ✅ KPI Value */
 .kpi-value {
-  font-size: clamp(26px, 3vw, 40px);
-  font-weight: 550; /* Adjust font weight to match the image */
+  font-size: clamp(32px, 3vw, 40px);
+  font-weight: 550; /* Adjust font weight */
   color: #1c2330;
   margin-bottom: 20px;
   line-height: 47px;
-  /*write a media query here,*/
 }
 
+/* ✅ KPI Comparison */
 .kpi-comparison {
-  font-size: clamp(11px, 3vw, 16px);
+  font-size: clamp(14px, 3vw, 16px);
   color: #777e8b;
   width: 100%;
   font-family: Optimo-Plain, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+/* ✅ KPI Measure */
 .kpi-measure {
   margin-bottom: 5px;
   display: flex;
-  align-items: center; /* Align items in the center vertically */
+  align-items: center;
   width: 100%;
 }
 
+/* ✅ KPI Change */
 .kpi-change {
   font-weight: bold;
-  margin-right: 15px; /* Add 15px space after the change percentage */
+  margin-right: 15px;
 }
 
+/* ✅ KPI Value and Label */
 .kpi-value-and-label {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Left align the values and labels */
+  align-items: flex-start;
 }
 
+/* ✅ Positive Change Styling */
 .kpi-positive {
   color: green;
   padding-right: 7px;
-  /* font-family: optimo-plain; */
 }
 
+/* ✅ Negative Change Styling */
 .kpi-negative {
   color: red;
   padding-right: 7px;
-  /* font-family: optimo-plain; */
 }
 
+/* ✅ Arrow Styling */
 .arrow {
-  font-weight: bold;
   font-weight: 200;
 }
 
+/* ✅ Comparison KPI Absolute Value */
 .comparisonKPIAbsoluteValue {
   font-weight: bold;
   padding-right: 3px;
   color: #000000;
-  /* font-family: optimo-plain; */
 }
 
-.comparisonKPIName{
-  /* font-family: optimo-plain; */
+/* ✅ Print & PDF Export Optimization */
+@media print {
+  /* ✅ Force white background for PDFs */
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  /* ✅ Adjust KPI card for smaller tiles in PDF */
+  .kpi-card {
+    width: 100% !important;
+    height: auto !important;
+    padding: 10px;
+    font-size: 12px !important;
+    text-align: left !important;
+  }
+
+  /* ✅ Scale font sizes dynamically */
+  .kpi-value {
+    font-size: 20px !important;
+    font-weight: bold !important;
+  }
+
+  .kpi-comparison {
+    font-size: 10px !important;
+  }
+
+  /* ✅ Ensure table and chart do not distort */
+  #chartContainer, .highcharts-container {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* ✅ Hide unnecessary elements in PDF */
+  .measure-button, .interactive-elements {
+    display: none !important;
+  }
+
+  /* ✅ Prevent text from wrapping awkwardly */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    font-size: 12px !important;
+    padding: 5px !important;
+    text-align: left !important;
+  }
 }
