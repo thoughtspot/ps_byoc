@@ -82,7 +82,7 @@ body {
 }
 
 /* ✅ PDF Export Optimization */
-@media print {
+@media print and (max-width: 400px) {
   body {
     display: inline-block;
     width: 100%;
