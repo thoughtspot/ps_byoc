@@ -18,12 +18,14 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0', // Allows access from external devices
+    host: '0.0.0.0', // Allows external access
     port: 5173, // Ensure this matches your dev server port
-    allowedHosts: [
-      '2959-2406-7400-10b-a0f3-acde-eb00-81a2-d7b1.ngrok-free.app' // Add your ngrok URL here
-    ],
     strictPort: true, // Ensures Vite does not pick a random port
-    cors: true // Enable CORS if needed
-  }
+    cors: true, // Enable CORS for external access
+    allowedHosts: "1b61-2406-7400-10b-c22b-4dfe-a3ba-26ed-4b6f.ngrok-free.app",
+    hmr: {
+      clientPort: 443, // Use default HTTPS port (important for Ngrok)
+    },
+    origin: 'https://1b61-2406-7400-10b-c22b-4dfe-a3ba-26ed-4b6f.ngrok-free.app', // Set Ngrok as origin
+  },
 });

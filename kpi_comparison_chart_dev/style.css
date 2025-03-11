@@ -102,7 +102,7 @@ body {
   .kpi-value {
     font-size: 20px !important;
     font-weight: 600 !important;
-    margin-bottom: 0px !important;
+    margin-bottom: 4px !important;
     line-height: normal;
   }
 
