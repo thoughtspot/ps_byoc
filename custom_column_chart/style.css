@@ -1,0 +1,22 @@
+.measure-button {
+    background-color: #E5E7EB; /* Light grey background */
+    color: #000; /* Black text */
+    border: none;
+    padding: 8px 16px;
+    margin: 5px;
+    cursor: pointer;
+    border-radius: 20px; /* ✅ Oval shape */
+    font-weight: bold;
+    font-size: 14px;
+    transition: all 0.3s ease-in-out;
+}
+
+.measure-button:hover {
+    background-color: #D1D5DB; /* Slightly darker grey */
+}
+
+.measure-button.active-measure {
+    background-color: #60646cd8 !important; /* Dark grey background */
+    color: #ffffffef !important; /* White text */
+    border: none;
+}
