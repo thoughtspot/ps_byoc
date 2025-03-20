@@ -273,19 +273,19 @@ const renderChart = async (ctx) => {
           key: 'Change%', // ✅ Default checked
           type: 'checkbox',
           defaultValue: true,
-          label: ' Click to select Change%',
+          label: ' Click to Select Change%',
         },
         {
           key: 'Variance',
           type: 'checkbox',
           defaultValue: false,
-          label: 'Click to select Variance',
+          label: 'Click to Select Variance',
         },
         {
           key: 'bps',
           type: 'checkbox',
           defaultValue: false,
-          label: 'Click to select bps',
+          label: 'Click to Select bps',
         },
       ],
     },

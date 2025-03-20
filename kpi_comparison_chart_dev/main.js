@@ -10,53 +10,84 @@ import numeral from 'numeral';
 const visualPropKeyMap = {
   0: 'numberFormat',
   1: 'Variance',
+  2: 'bps',
+  3: 'Options',
 };
 
 let userNumberFormat = '0.0'; // Default format if not specified by the user
 
-const numberFormatter = (value, format = '', applySuffix = true) => {
+const userNumberFormatter = (value, format) => {
+  return numeral(value).format(format);
+};
+
+
+// ✅ Number formatter with full currency and abbreviations (for KPI and comparison values)
+const numberFormatterWithCurrency = (value, format = '') => {
+  if (!format) return value.toString();
+  let formattedValue = numeral(value).format(format);
+
+  if (value > 1000000000 || value < -1000000000) {
+    formattedValue = numeral(value / 1000000000).format(format) + 'B';
+  } else if (value > 1000000 || value < -1000000) {
+    formattedValue = numeral(value / 1000000).format(format) + 'M';
+  } else if (value > 1000 || value < -1000) {
+    formattedValue = numeral(value / 1000).format(format) + 'K';
+  }
+  
+  return formattedValue;
+};
+
+
+// ✅ Formatter WITHOUT currency, but controls abbreviation for Change% and BPS
+const numberFormatterNoCurrency = (value, format = '', isChangeOrBps = false) => {
   if (!format) return value.toString();
 
-  let formattedValue;
+  let formattedValue = numeral(value).format(format);
 
-  // ✅ If Change% or BPS, remove currency symbol but keep decimal formatting
-  if (format.includes('$')) {
-      format = format.replace(/\$/g, ''); // ✅ Strip $ from format but keep decimal places
-  }
+  // Remove currency symbols, keeping decimal precision
+  formattedValue = formattedValue.replace(/[^0-9.,-]/g, '');
 
-  formattedValue = numeral(value).format(format);
-
-  // ✅ Apply suffixes (B, M, K) only if not a percentage or BPS value
-  if (applySuffix) {
-      if (value > 1000000000 || value < -1000000000) {
-          formattedValue = numeral(value / 1000000000).format(format) + 'B';
-      } else if (value > 1000000 || value < -1000000) {
-          formattedValue = numeral(value / 1000000).format(format) + 'M';
-      } else if (value > 1000 || value < -1000) {
-          formattedValue = numeral(value / 1000).format(format) + 'K';
-      }
+  // ✅ ONLY apply K/M/B for comparison values, NOT for Change% or BPS
+  if (!isChangeOrBps) {
+    if (value > 1000000000 || value < -1000000000) {
+      formattedValue = numeral(value / 1000000000).format(format) + 'B';
+    } else if (value > 1000000 || value < -1000000) {
+      formattedValue = numeral(value / 1000000).format(format) + 'M';
+    } else if (value > 1000 || value < -1000) {
+      formattedValue = numeral(value / 1000).format(format) + 'K';
+    }
   }
 
   return formattedValue;
 };
 
 
-const userNumberFormatter = (value, format) => {
-  return numeral(value).format(format);
-};
+
+
+
 
 function getDataForColumn(column, dataArr) {
   const idx = _.findIndex(dataArr.columns, (colId) => column.id === colId);
   return _.map(dataArr.dataValue, (row) => row[idx]);
 }
 
-function calculateKpiValues(chartModel, displayMode) {
+
+
+
+function calculateKpiValues(chartModel, showVariance) {
+  showVariance = chartModel.visualProps.Variance;
+  console.log('Variance setting in KPI Calculation:', showVariance); // ✅ Logs before calculations
+
   const dataArr = chartModel.data?.[0]?.data ?? [];
-  const measureColumns = _.filter(chartModel.columns, (col) => col.type === ColumnType.MEASURE);
+  const measureColumns = _.filter(
+      chartModel.columns,
+      (col) => col.type === ColumnType.MEASURE
+  );
 
-  if (measureColumns.length === 0 || dataArr.length === 0) return { mainKpiValue: 0, measures: [] };
+  if (measureColumns.length === 0 || dataArr.length === 0)
+      return { mainKpiValue: 0, measures: [] };
 
-  const configDimensions = chartModel.config?.chartConfig?.[1]?.dimensions ??
+  const configDimensions = chartModel.config?.chartConfig?.[1]?.dimensions ?? 
                            chartModel.config?.chartConfig?.[0]?.dimensions ?? [];
 
   const mainKpiColumn = configDimensions.find((it) => it.key === 'x');
@@ -70,62 +101,63 @@ function calculateKpiValues(chartModel, displayMode) {
 
   const measures = comparisonMeasures.map((col) => {
       const value = _.sum(getDataForColumn(col, dataArr));
-      const variance = mainKpiValue - value; 
-      const change = mainKpiValue !== 0 ? ((mainKpiValue - value) / Math.abs(value)) * 100 : 0;
-      const bps = change * 100;
 
-      return {
-          label: col.name,
-          value,
-          variance,
-          change,
-          bps
-      };
+      const variance = mainKpiValue - value; // ✅ Compute variance correctly
+
+      const change = showVariance 
+          ? mainKpiValue - value // ✅ Show absolute variance if checked
+          : mainKpiValue !== 0 ? ((mainKpiValue - value) / Math.abs(value)) * 100 : 0; // ✅ Show % change if unchecked
+
+      const bps = (change * 100); // ✅ Compute BPS
+
+      return { label: col.name, value, change,variance,bps };
   });
 
   return { mainKpiValue, measures };
 }
 
 
+function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, isBpsChecked) {
+  // ✅ Format the Main KPI Value (Always with currency)
+  document.getElementById('mainKpiValue').innerText = numberFormatterWithCurrency(mainKpiValue, format);
 
-function updateKpiContainer(measures, mainKpiValue, format, displayMode) {
-  document.getElementById('mainKpiValue').innerText = numberFormatter(mainKpiValue, format);
   const kpiContainer = document.getElementById('kpiMeasures');
-  kpiContainer.innerHTML = '';
+  kpiContainer.innerHTML = ''; // Clear previous content
 
   measures.forEach((measure) => {
-      let measureValue;
-      let displayValue;
-      let formattedValue = numberFormatter(measure.value, format); // ✅ Ensure correct formatting
+    let displayValue;
+    let formattedComparisonValue = numberFormatterWithCurrency(measure.value, format); // ✅ Keep currency
 
-      // ✅ Select the correct display mode value
-      if (displayMode === 'variance') {
-          measureValue = measure.variance;
-          displayValue = numberFormatter(measure.variance, format);
-      } else if (displayMode === 'bps') {
-          measureValue = measure.bps;
-          displayValue = numberFormatter(measure.bps, format) + " bps";
-      } else {
-          measureValue = measure.change;
-          displayValue = Math.abs(numberFormatter(measure.change, format)) + '%';
-      }
+    if (isVarianceChecked) {
+      displayValue = numberFormatterWithCurrency(measure.variance, format); // ✅ Variance keeps currency
+    } else if (isBpsChecked) {
+      displayValue = numberFormatterNoCurrency(measure.bps, format, true) + " bps"; // ✅ No currency, no K/M/B
+    } else {
+      displayValue = numberFormatterNoCurrency(measure.change, format, true) + '%'; // ✅ No currency, no K/M/B
+    }
 
-      // ✅ Ensure correct change class based on selected display mode
-      const changeClass = measureValue > 0 ? 'kpi-positive' : 'kpi-negative';
-      const arrow = measureValue > 0 ? '↑' : '↓';
+    // ✅ Correct logic for positive/negative styling
+    const changeClass = (isVarianceChecked ? measure.variance > 0 : isBpsChecked ? measure.bps > 0 : measure.change > 0)
+      ? 'kpi-positive'
+      : 'kpi-negative';
+    const arrow = (isVarianceChecked ? measure.variance > 0 : isBpsChecked ? measure.bps > 0 : measure.change > 0) 
+      ? '↑' 
+      : '↓';
 
-      const measureDiv = document.createElement('div');
-      measureDiv.classList.add('kpi-measure');
+    // ✅ Create KPI Measure Row
+    const measureDiv = document.createElement('div');
+    measureDiv.classList.add('kpi-measure');
 
-      measureDiv.innerHTML = `
-          <span class="${changeClass}">${arrow} ${displayValue}</span>
-          <span class="comparisonKPIAbsoluteValue">(${formattedValue})</span> 
-          <span class="comparisonKPIName">vs. ${measure.label}</span>
-      `;
+    measureDiv.innerHTML = `
+      <span class="${changeClass}">${arrow} ${displayValue}</span>
+      <span class="comparisonKPIAbsoluteValue">(${formattedComparisonValue})</span> 
+      <span class="comparisonKPIName">vs. ${measure.label}</span>
+    `;
 
-      kpiContainer.appendChild(measureDiv);
+    kpiContainer.appendChild(measureDiv);
   });
 }
+
 
 
 
@@ -141,15 +173,19 @@ async function render(ctx) {
   const appConfig = ctx.getAppConfig();
 
   if (appConfig?.styleConfig?.customFontFaces?.length) {
-      insertCustomFont(appConfig.styleConfig.customFontFaces);
+    insertCustomFont(appConfig.styleConfig.customFontFaces);
   }
 
+  // Read number format and variance checkbox value
   const numberFormat = chartModel.visualProps.numberFormat || userNumberFormat;
-  const displayMode = chartModel.visualProps.valueDisplayMode || 'change'; // ✅ Read selected radio button value
+  const isVarianceChecked = chartModel.visualProps.Variance || false;
+  const isBpsChecked = chartModel.visualProps.bps || false;
 
-  const kpiValues = calculateKpiValues(chartModel, displayMode);
-  updateKpiContainer(kpiValues.measures, kpiValues.mainKpiValue, numberFormat, displayMode);
+  const kpiValues = calculateKpiValues(chartModel);
+  updateKpiContainer(kpiValues.measures, kpiValues.mainKpiValue, numberFormat, isVarianceChecked, isBpsChecked);
 }
+
+
 
 
 
@@ -234,16 +270,23 @@ const renderChart = async (ctx) => {
           label: 'Number Format',
         },
         {
-          key: 'valueDisplayMode',
-          type: 'radio',
-          defaultValue: 'change', // ✅ Change% is selected by default
-          label: 'Display Mode',
-          options: [
-              { label: 'Change%', value: 'change' },
-              { label: 'Variance', value: 'variance' },
-              { label: 'BPS', value: 'bps' }
-          ]
-        }
+          key: 'Change%', // ✅ Default checked
+          type: 'checkbox',
+          defaultValue: true,
+          label: ' Click to select Change%',
+        },
+        {
+          key: 'Variance',
+          type: 'checkbox',
+          defaultValue: false,
+          label: 'Click to select Variance',
+        },
+        {
+          key: 'bps',
+          type: 'checkbox',
+          defaultValue: false,
+          label: 'Click to select bps',
+        },
       ],
     },
     onPropChange: (propKey, propValue) => {
@@ -251,8 +294,14 @@ const renderChart = async (ctx) => {
         userNumberFormat = propValue || '0.0';
         console.log('Number format updated to:', userNumberFormat); // Debugging line
         renderChart(ctx); // Re-render the chart with the new format
-      } else if (propKey === 'valueDisplayMode') {  // ✅ Handle radio button changes
-        console.log(`Display Mode changed to: ${propValue}`);
+      }  else if (propKey === 'Change%') {
+        console.log('Variance checkbox state changed:', propValue);
+        renderChart(ctx);
+      }  else if (propKey === 'Variance') {
+        console.log('Variance checkbox state changed:', propValue);
+        renderChart(ctx);
+      }  else if (propKey === 'bps') {
+        console.log('BPS checkbox state changed:', propValue);
         renderChart(ctx);
       } else if (propKey === 'columnOrder' || propKey.startsWith('column')) {
         renderChart(ctx);
