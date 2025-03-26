@@ -122,10 +122,6 @@ function createMeasureButtons(
 }
 
 
-
-
-
-
 // Function to render the chart with dynamic measure selection
 function render(ctx: CustomChartContext, selectedMeasure?: string) {
     const chartModel = ctx.getChartModel();

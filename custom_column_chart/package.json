@@ -1,5 +1,5 @@
 {
-    "name": "custom-bar-chart",
+    "name": "custom-column-chart",
     "version": "1.0.0",
     "description": "",
     "main": "dist/index.html",
