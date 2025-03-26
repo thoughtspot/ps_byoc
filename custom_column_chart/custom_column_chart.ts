@@ -18,6 +18,12 @@ import HighchartsCustomEvents from 'highcharts-custom-events';
 
 HighchartsCustomEvents(Highcharts);
 
+
+interface VisualProps {
+    numberFormat?: string;
+    DatalabelsToggle?: boolean;
+}
+
 // Utility function to format numbers
 function formatNumber(value: number, format: string): string {
     try {
@@ -126,6 +132,9 @@ function createMeasureButtons(
 function render(ctx: CustomChartContext, selectedMeasure?: string) {
     const chartModel = ctx.getChartModel();
     const measureColumns = getMeasureColumns(chartModel);
+    const visualProps = chartModel.visualProps as VisualProps;    
+    const datalablestoggle = visualProps?.DatalabelsToggle ?? true; // Default to true
+
 
     if (measureColumns.length === 0) {
         console.warn('No measure columns available.');
@@ -256,7 +265,7 @@ function render(ctx: CustomChartContext, selectedMeasure?: string) {
             } as any,
             labels: {
                 formatter: function () {
-                    return formatNumber(this.value as number, numberFormat);
+                    return formatNumber(this.value as number, numberFormat); // ✅ Ensure y-axis labels use correct format
                 },
             },
         },
@@ -306,7 +315,8 @@ function render(ctx: CustomChartContext, selectedMeasure?: string) {
         
                 return `
                     ${xAxisName}:</b><br> ${xValue}<br><br>
-                    ${yAxisName}:</b><br> ${formatNumber(point.y || 0, '0.[0]a')}
+                    <b>${yAxisName}:</b><br> ${formatNumber(point.y || 0, numberFormat)} <!-- ✅ Use correct number format -->
+
                 `;
             },
         },
@@ -316,7 +326,12 @@ function render(ctx: CustomChartContext, selectedMeasure?: string) {
                 pointPadding: 0.1,
                 groupPadding: 0.275,
                 pointWidth: 20,
-                dataLabels: { enabled: true },
+                dataLabels: { 
+                    enabled: datalablestoggle,
+                    formatter: function () {
+                        return formatNumber(this.y, numberFormat); // ✅ Ensure bar totals are formatted
+                    },
+                },
                 borderWidth: 0, // ✅ Remove unnecessary borders
             },
         },
@@ -414,6 +429,12 @@ const renderChart = async (ctx: CustomChartContext) => {
                     type: 'text',
                     defaultValue: '0.[0]a',
                     label: 'Number Format',
+                },
+                {
+                    key: 'DatalabelsToggle',
+                    type: 'checkbox',
+                    defaultValue: true,
+                    label: 'Column Total Labels',
                 },
             ],
         },
