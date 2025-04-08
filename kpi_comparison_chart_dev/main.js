@@ -129,7 +129,7 @@ function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, i
     let formattedComparisonValue = numberFormatterWithCurrency(measure.value, format); // ✅ Keep currency
 
     if (isVarianceChecked) {
-      displayValue = numberFormatterWithCurrency(measure.variance, format); // ✅ Variance keeps currency
+      displayValue = (measure.variance == null || measure.variance === 0) ? '' : numberFormatterWithCurrency(measure.variance, format);
     } else if (isBpsChecked) {
       displayValue = numberFormatterNoCurrency(measure.bps, format, true) + " bps"; // ✅ No currency, no K/M/B
     } else {
