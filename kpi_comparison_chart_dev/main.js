@@ -102,7 +102,7 @@ function calculateKpiValues(chartModel, showVariance) {
   const measures = comparisonMeasures.map((col) => {
       const value = _.sum(getDataForColumn(col, dataArr));
 
-      const variance = mainKpiValue - value; // ✅ Compute variance correctly
+      const variance = (value == null) ? null : mainKpiValue - value;      // ✅ Compute variance correctly
 
       const change = showVariance 
           ? mainKpiValue - value // ✅ Show absolute variance if checked
