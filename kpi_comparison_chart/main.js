@@ -102,7 +102,7 @@ function calculateKpiValues(chartModel, showVariance) {
   const measures = comparisonMeasures.map((col) => {
       const value = _.sum(getDataForColumn(col, dataArr));
 
-      const variance = mainKpiValue - value; // ✅ Compute variance correctly
+      const variance = (value == null) ? null : mainKpiValue - value;      // ✅ Compute variance correctly
 
       const change = showVariance 
           ? mainKpiValue - value // ✅ Show absolute variance if checked
@@ -129,7 +129,7 @@ function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, i
     let formattedComparisonValue = numberFormatterWithCurrency(measure.value, format); // ✅ Keep currency
 
     if (isVarianceChecked) {
-      displayValue = numberFormatterWithCurrency(measure.variance, format); // ✅ Variance keeps currency
+      displayValue = (measure.variance == null || measure.variance === 0) ? '' : numberFormatterWithCurrency(measure.variance, format);
     } else if (isBpsChecked) {
       displayValue = numberFormatterNoCurrency(measure.bps, format, true) + " bps"; // ✅ No currency, no K/M/B
     } else {
