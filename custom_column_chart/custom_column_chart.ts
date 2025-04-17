@@ -10,8 +10,11 @@ import {
     ChartColumn,
     AxisMenuActions,
     ColumnProp,
+    AppConfig,
+    getCustomCalendarGuidFromColumn,
 } from '@thoughtspot/ts-chart-sdk';
 import Highcharts, { color, Tooltip } from 'highcharts';
+import { getDataFormatter } from '@thoughtspot/ts-chart-sdk';
 import numeral from 'numeral';
 import * as _ from 'lodash';
 import HighchartsCustomEvents from 'highcharts-custom-events';
@@ -34,6 +37,27 @@ function formatNumber(value: number, format: string): string {
     }
 }
 
+function getFormattedXAxisLabels(
+    xAxisColumn: ChartColumn,
+    dataArr: DataPointsArray,
+    appConfig: AppConfig
+): string[] {
+    const formatter = getDataFormatter(xAxisColumn, { isMillisIncluded: false });
+    const idx = dataArr.columns.indexOf(xAxisColumn.id);
+    const rawLabels = dataArr.dataValue.map(row => row[idx]);
+
+    const options = generateMapOptions(appConfig, xAxisColumn, rawLabels);
+
+    return rawLabels.map((val: any) => {
+        // Handle dateNum (custom calendar) vs regular UNIX
+        if (getCustomCalendarGuidFromColumn(xAxisColumn)) {
+            return formatter(val.v.s, options); // custom calendar string
+        }
+        return formatter(val, options); // UNIX timestamp or other
+    });
+}
+
+
 // Extract data from ThoughtSpot ChartModel
 function getDataModel(chartModel: ChartModel, selectedMeasureId: string) {
     const dataArr = chartModel.data?.[chartModel.data?.length - 1]?.data ?? { columns: [], dataValue: [] };
@@ -54,6 +78,9 @@ function getDataModel(chartModel: ChartModel, selectedMeasureId: string) {
     const xAxisLabels = _.uniq(
         dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)] ?? "N/A")
     );
+
+    const xAxisLabels = getFormattedXAxisLabels(xAxisColumn, dataArr, appConfig);
+
 
     const sliceByValues = sliceByColumnId
         ? _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(sliceByColumnId)] ?? "Default"))
@@ -442,3 +469,19 @@ const renderChart = async (ctx: CustomChartContext) => {
 
     renderChart(ctx);
 })();
+function generateMapOptions(appConfig: AppConfig, xAxisColumn: ChartColumn, rawLabels: any[]) {
+    throw new Error('Function not implemented.');
+}
+
+function generateMapOptions(appConfig: AppConfig, xAxisColumn: ChartColumn, rawLabels: any[]) {
+    throw new Error('Function not implemented.');
+}
+
+function getCustomCalendarGuidFromColumn(xAxisColumn: ChartColumn) {
+    throw new Error('Function not implemented.');
+}
+
+function getCustomCalendarGuidFromColumn(xAxisColumn: ChartColumn) {
+    throw new Error('Function not implemented.');
+}
+
