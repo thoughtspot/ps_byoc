@@ -102,7 +102,7 @@ function calculateKpiValues(chartModel, showVariance) {
   const measures = comparisonMeasures.map((col) => {
       const value = _.sum(getDataForColumn(col, dataArr));
 
-      const variance = (value == null) ? undefined : mainKpiValue - value;      // ✅ Compute variance correctly
+      const variance = (value == undefined) ? undefined : mainKpiValue - value;      // ✅ Compute variance correctly
 
       const change = showVariance 
           ? mainKpiValue - value // ✅ Show absolute variance if checked
@@ -129,7 +129,7 @@ function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, i
     let formattedComparisonValue = numberFormatterWithCurrency(measure.value, format); // ✅ Keep currency
 
     if (isVarianceChecked) {
-      displayValue = (measure.variance == null || measure.variance === 0) ? '' : numberFormatterWithCurrency(measure.variance, format);
+      displayValue = (measure.variance == undefined || measure.variance === 0) ? '' : numberFormatterWithCurrency(measure.variance, format);
     } else if (isBpsChecked) {
       displayValue = numberFormatterNoCurrency(measure.bps, format, true) + " bps"; // ✅ No currency, no K/M/B
     } else {
@@ -137,10 +137,10 @@ function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, i
     }
 
     // ✅ Correct logic for positive/negative styling
-    const changeClass = (isVarianceChecked ? (measure.variance == null || measure.variance > 0) : isBpsChecked ? measure.bps > 0 : measure.change > 0)
+    const changeClass = (isVarianceChecked ? (measure.variance == undefined || measure.variance > 0) : isBpsChecked ? measure.bps > 0 : measure.change > 0)
       ? 'kpi-positive'
       : 'kpi-negative';
-    const arrow = (isVarianceChecked ? (measure.variance == null || measure.variance > 0) : isBpsChecked ? measure.bps > 0 : measure.change > 0) 
+    const arrow = (isVarianceChecked ? (measure.variance == undefined || measure.variance > 0) : isBpsChecked ? measure.bps > 0 : measure.change > 0) 
       ? '↑' 
       : '↓';
 
