@@ -137,10 +137,10 @@ function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, i
     }
 
     // ✅ Correct logic for positive/negative styling
-    const changeClass = (isVarianceChecked ? measure.variance > 0 : isBpsChecked ? measure.bps > 0 : measure.change > 0)
+    const changeClass = (isVarianceChecked ? (measure.variance == null || measure.variance > 0) : isBpsChecked ? measure.bps > 0 : measure.change > 0)
       ? 'kpi-positive'
       : 'kpi-negative';
-    const arrow = (isVarianceChecked ? measure.variance > 0 : isBpsChecked ? measure.bps > 0 : measure.change > 0) 
+    const arrow = (isVarianceChecked ? (measure.variance == null || measure.variance > 0) : isBpsChecked ? measure.bps > 0 : measure.change > 0) 
       ? '↑' 
       : '↓';
 
