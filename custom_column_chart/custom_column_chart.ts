@@ -79,9 +79,6 @@ function getDataModel(chartModel: ChartModel, selectedMeasureId: string) {
         dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)] ?? "N/A")
     );
 
-    const xAxisLabels = getFormattedXAxisLabels(xAxisColumn, dataArr, appConfig);
-
-
     const sliceByValues = sliceByColumnId
         ? _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(sliceByColumnId)] ?? "Default"))
         : ["Default"]; // ✅ Use a default value if `sliceByColumn` is undefined
