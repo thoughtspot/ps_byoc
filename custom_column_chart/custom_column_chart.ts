@@ -8,13 +8,16 @@ import {
     DataPointsArray,
     Query,
     ChartColumn,
+    getCustomCalendarGuidFromColumn,
     AxisMenuActions,
     ColumnProp,
     AppConfig,
-    getCustomCalendarGuidFromColumn,
 } from '@thoughtspot/ts-chart-sdk';
 import Highcharts, { color, Tooltip } from 'highcharts';
-import { getDataFormatter } from '@thoughtspot/ts-chart-sdk';
+import {
+    generateMapOptions,
+    getDataFormatter,
+} from '@thoughtspot/ts-chart-sdk/src/utils/formatting-util';
 import numeral from 'numeral';
 import * as _ from 'lodash';
 import HighchartsCustomEvents from 'highcharts-custom-events';
@@ -37,24 +40,22 @@ function formatNumber(value: number, format: string): string {
     }
 }
 
-function getFormattedXAxisLabels(
-    xAxisColumn: ChartColumn,
-    dataArr: DataPointsArray,
-    appConfig: AppConfig
-): string[] {
-    const formatter = getDataFormatter(xAxisColumn, { isMillisIncluded: false });
-    const idx = dataArr.columns.indexOf(xAxisColumn.id);
-    const rawLabels = dataArr.dataValue.map(row => row[idx]);
-
-    const options = generateMapOptions(appConfig, xAxisColumn, rawLabels);
-
-    return rawLabels.map((val: any) => {
-        // Handle dateNum (custom calendar) vs regular UNIX
-        if (getCustomCalendarGuidFromColumn(xAxisColumn)) {
-            return formatter(val.v.s, options); // custom calendar string
-        }
-        return formatter(val, options); // UNIX timestamp or other
+function getDataForColumn(column: ChartColumn, dataArr: DataPointsArray) {
+    const formatter = getDataFormatter(column, { isMillisIncluded: false });
+    const idx = _.findIndex(dataArr.columns, (colId) => column.id === colId);
+    const dataForCol = _.map(dataArr.dataValue, (row) => {
+        const colValue = row[idx];
+        return colValue;
     });
+    const options = generateMapOptions(appConfigGlobal, column, dataForCol);
+    const formattedValuesForData = _.map(dataArr.dataValue, (row) => {
+        const colValue = row[idx];
+        if (getCustomCalendarGuidFromColumn(column))
+            return formatter(colValue.v.s, options);
+        return formatter(colValue, options);
+    });
+
+    return formattedValuesForData;
 }
 
 
@@ -63,43 +64,51 @@ function getDataModel(chartModel: ChartModel, selectedMeasureId: string) {
     const dataArr = chartModel.data?.[chartModel.data?.length - 1]?.data ?? { columns: [], dataValue: [] };
 
     const measureColumn = chartModel.columns.find(col => col.id === selectedMeasureId);
-    if (!measureColumn) return { xAxisLabels: [], seriesData: [] };
-
-    const xAxisColumn = chartModel.config?.chartConfig?.[0]?.dimensions?.[0]?.columns?.[0];
-    const sliceByColumn = chartModel.config?.chartConfig?.[0]?.dimensions?.[2]?.columns?.[0]; // Get sliceBy column
-
-    if (!xAxisColumn || !xAxisColumn.id) {
-        console.error("X-axis column is undefined.");
+    if (!measureColumn) {
+        console.error('Selected measure not found.');
         return { xAxisLabels: [], seriesData: [] };
     }
 
-    const sliceByColumnId = sliceByColumn?.id ?? null; // ✅ Ensure safe access
+    const xAxisColumn = chartModel.config?.chartConfig?.[0]?.dimensions?.[0]?.columns?.[0];
+    const sliceByColumn = chartModel.config?.chartConfig?.[0]?.dimensions?.[2]?.columns?.[0];
 
-    const xAxisLabels = _.uniq(
-        dataArr.dataValue.map(row => row[dataArr.columns.indexOf(xAxisColumn.id)] ?? "N/A")
-    );
+    if (!xAxisColumn) {
+        console.error('X-axis column is undefined.');
+        return { xAxisLabels: [], seriesData: [] };
+    }
 
-    const sliceByValues = sliceByColumnId
-        ? _.uniq(dataArr.dataValue.map(row => row[dataArr.columns.indexOf(sliceByColumnId)] ?? "Default"))
-        : ["Default"]; // ✅ Use a default value if `sliceByColumn` is undefined
+    // ✅ Properly formatted X Axis labels
+    const xAxisLabels = _.uniq(getDataForColumn(xAxisColumn, dataArr));
 
-    // Create grouped data for Highcharts series
+    // ✅ Properly formatted Slice By values
+    const sliceByValues = sliceByColumn
+        ? _.uniq(getDataForColumn(sliceByColumn, dataArr))
+        : ['Default'];
+
+    // ✅ Full formatted values for matching
+    const xAxisFormattedValues = getDataForColumn(xAxisColumn, dataArr);
+    const sliceByFormattedValues = sliceByColumn
+        ? getDataForColumn(sliceByColumn, dataArr)
+        : [];
+
+    // ✅ Create series data safely
     const seriesData = sliceByValues.map(slice => ({
         name: slice,
         data: xAxisLabels.map(label => {
-            const row = dataArr.dataValue.find(item =>
-                item[dataArr.columns.indexOf(xAxisColumn.id)] === label &&
-                (sliceByColumnId ? item[dataArr.columns.indexOf(sliceByColumnId)] === slice : true)
+            const index = xAxisFormattedValues.findIndex((formattedLabel, idx) =>
+                formattedLabel === label &&
+                (sliceByColumn ? sliceByFormattedValues[idx] === slice : true)
             );
-            return row ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) || 0 : 0;
+            if (index === -1) return 0;
+            const row = dataArr.dataValue[index];
+            return row
+                ? parseFloat(row[dataArr.columns.indexOf(measureColumn.id)]) || 0
+                : 0;
         }),
     }));
 
     return { xAxisLabels, seriesData };
 }
-
-
-
 
 
 // Function to get measure columns 
@@ -151,10 +160,13 @@ function createMeasureButtons(
     });
 }
 
+let appConfigGlobal: AppConfig; // Move outside
+
 
 // Function to render the chart with dynamic measure selection
 function render(ctx: CustomChartContext, selectedMeasure?: string) {
     const chartModel = ctx.getChartModel();
+    appConfigGlobal = ctx.getAppConfig();
     const measureColumns = getMeasureColumns(chartModel);
     const visualProps = chartModel.visualProps as VisualProps;    
     const datalablestoggle = visualProps?.DatalabelsToggle ?? true; // Default to true
@@ -197,23 +209,33 @@ function render(ctx: CustomChartContext, selectedMeasure?: string) {
         
                     // Add right-click (context menu) event listener
                     chartInstance.container.addEventListener('contextmenu', function (event) {
-                        event.preventDefault(); // Prevent default right-click menu
-        
-                        const pointerEvent = chartInstance.pointer.normalize(event); // Normalize event for Highcharts
-                        let clickedPoint: Highcharts.Point | null = null as Highcharts.Point | null;
-        
+                        event.preventDefault();
+                    
+                        const pointerEvent = chartInstance.pointer.normalize(event);
+                        let clickedPoint: any = null; // <-- Full any type safely
+                    
                         chartInstance.series.forEach((series) => {
-                            series.points.forEach((point: Highcharts.Point) => { // ✅ Explicit typing
+                            series.points.forEach((point) => {
                                 if (point.graphic && point.graphic.element === event.target) {
-                                    clickedPoint = point; // ✅ Now TypeScript recognizes point properties
+                                    clickedPoint = point;
                                 }
                             });
                         });
-        
+                    
                         if (clickedPoint) {
-                            console.log("Right-clicked on:", clickedPoint.category, clickedPoint.y);
-        
-                            // Emit ThoughtSpot Drill-Down Event
+                            console.log(
+                                "Right-clicked on:",
+                                clickedPoint?.category || clickedPoint?.name,
+                                clickedPoint?.y
+                            );
+                    
+                            // Find correct xAxis and yAxis columns
+                            const xAxisColumn = chartModel.config?.chartConfig?.[0]?.dimensions?.[0]?.columns?.[0];
+                            const measureColumns = chartModel.config?.chartConfig?.[0]?.dimensions?.[1]?.columns || [];
+                    
+                            // Since you select one measure at a time (dynamic button), always pick first measure
+                            const measureColumn = measureColumns[0];
+                    
                             ctx.emitEvent(ChartToTSEvent.OpenContextMenu, {
                                 event: {
                                     clientX: event.clientX,
@@ -222,12 +244,12 @@ function render(ctx: CustomChartContext, selectedMeasure?: string) {
                                 clickedPoint: {
                                     tuple: [
                                         {
-                                            columnId: chartModel.columns.find(col => col.type === ColumnType.ATTRIBUTE)?.id ?? '',
-                                            value: clickedPoint.category, // ✅ Correct category selection
+                                            columnId: xAxisColumn?.id ?? '',
+                                            value: clickedPoint?.category || clickedPoint?.name,
                                         },
                                         {
-                                            columnId: chartModel.columns.find(col => col.type === ColumnType.MEASURE)?.id ?? '',
-                                            value: clickedPoint.y, // ✅ Correct y-value
+                                            columnId: measureColumn?.id ?? '',
+                                            value: clickedPoint?.y,
                                         },
                                     ],
                                 },
@@ -295,9 +317,9 @@ function render(ctx: CustomChartContext, selectedMeasure?: string) {
         },
         legend: { 
             enabled: true,
-            align: 'right',
+            align: 'center',
+            layout: 'horizontal', // ✅ Stack legends vertically
             verticalAlign: 'top',
-            layout: 'vertical', // ✅ Stack legends vertically
             itemMarginBottom: 5, // ✅ Add spacing between legend items
             floating: true, // ✅ Prevent legends from overlapping the chart
             x: 0, // ✅ Position closer to the chart edge
@@ -466,19 +488,4 @@ const renderChart = async (ctx: CustomChartContext) => {
 
     renderChart(ctx);
 })();
-function generateMapOptions(appConfig: AppConfig, xAxisColumn: ChartColumn, rawLabels: any[]) {
-    throw new Error('Function not implemented.');
-}
-
-function generateMapOptions(appConfig: AppConfig, xAxisColumn: ChartColumn, rawLabels: any[]) {
-    throw new Error('Function not implemented.');
-}
-
-function getCustomCalendarGuidFromColumn(xAxisColumn: ChartColumn) {
-    throw new Error('Function not implemented.');
-}
-
-function getCustomCalendarGuidFromColumn(xAxisColumn: ChartColumn) {
-    throw new Error('Function not implemented.');
-}
 
