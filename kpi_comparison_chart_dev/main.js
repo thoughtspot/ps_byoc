@@ -102,7 +102,7 @@ function calculateKpiValues(chartModel, showVariance) {
   const measures = comparisonMeasures.map((col) => {
       const value = _.sum(getDataForColumn(col, dataArr));
 
-      const variance = (value == undefined) ? undefined : mainKpiValue - undefined;      // ✅ Compute variance correctly
+      const variance = (value == null) ? null : mainKpiValue - value;      // ✅ Compute variance correctly
 
       const change = showVariance 
           ? mainKpiValue - value // ✅ Show absolute variance if checked
@@ -116,48 +116,77 @@ function calculateKpiValues(chartModel, showVariance) {
   return { mainKpiValue, measures };
 }
 
+function displayNullIfNeeded(value) {
+  // Handles both null and undefined, returns 'null' as a string for display
+  return (value === null || value === undefined) ? 'null' : value;
+}
 
 function updateKpiContainer(measures, mainKpiValue, format, isVarianceChecked, isBpsChecked) {
-  // ✅ Format the Main KPI Value (Always with currency)
-  document.getElementById('mainKpiValue').innerText = numberFormatterWithCurrency(mainKpiValue, format);
+  // ✅ Format the Main KPI Value (Always with currency, handle null/undefined)
+  const mainKpiDisplay = (mainKpiValue === null || mainKpiValue === undefined)
+    ? 'null'
+    : numberFormatterWithCurrency(mainKpiValue, format);
+  document.getElementById('mainKpiValue').innerText = mainKpiDisplay;
 
   const kpiContainer = document.getElementById('kpiMeasures');
   kpiContainer.innerHTML = ''; // Clear previous content
 
   measures.forEach((measure) => {
     let displayValue;
-    let formattedComparisonValue = numberFormatterWithCurrency(measure.value, format); // ✅ Keep currency
+    let formattedComparisonValue = (measure.value === null || measure.value === undefined)
+      ? 'null'
+      : numberFormatterWithCurrency(measure.value, format);
 
     if (isVarianceChecked) {
-      displayValue = (measure.variance == undefined || measure.variance === 0) ? '' : numberFormatterWithCurrency(measure.variance, format);
+      displayValue = (measure.variance === null || measure.variance === undefined || measure.variance === 0)
+        ? 'null'
+        : numberFormatterWithCurrency(measure.variance, format);
     } else if (isBpsChecked) {
-      displayValue = numberFormatterNoCurrency(measure.bps, format, true) + " bps"; // ✅ No currency, no K/M/B
+      displayValue = (measure.bps === null || measure.bps === undefined)
+        ? 'null'
+        : numberFormatterNoCurrency(measure.bps, format, true) + " bps";
     } else {
-      displayValue = numberFormatterNoCurrency(measure.change, format, true) + '%'; // ✅ No currency, no K/M/B
+      displayValue = (measure.change === null || measure.change === undefined)
+        ? 'null'
+        : numberFormatterNoCurrency(measure.change, format, true) + '%';
     }
 
-    // ✅ Correct logic for positive/negative styling
-    const changeClass = (isVarianceChecked ? measure.variance > 0 : isBpsChecked ? measure.bps > 0 : measure.change > 0)
-      ? 'kpi-positive'
-      : 'kpi-negative';
-    const arrow = (isVarianceChecked ? measure.variance > 0 : isBpsChecked ? measure.bps > 0 : measure.change > 0) 
-      ? '↑' 
-      : '↓';
+    // Handle positive/negative/neutral styling for null/undefined
+    let isPositive;
+    if (isVarianceChecked) {
+      isPositive = (measure.variance !== null && measure.variance !== undefined && measure.variance > 0);
+    } else if (isBpsChecked) {
+      isPositive = (measure.bps !== null && measure.bps !== undefined && measure.bps > 0);
+    } else {
+      isPositive = (measure.change !== null && measure.change !== undefined && measure.change > 0);
+    }
+
+    let changeClass, arrow;
+    if (
+      (isVarianceChecked && (measure.variance === null || measure.variance === undefined)) ||
+      (isBpsChecked && (measure.bps === null || measure.bps === undefined)) ||
+      (!isVarianceChecked && !isBpsChecked && (measure.change === null || measure.change === undefined))
+    ) {
+      changeClass = 'kpi-neutral';
+      arrow = '';
+    } else {
+      changeClass = isPositive ? 'kpi-positive' : 'kpi-negative';
+      arrow = isPositive ? '↑' : '↓';
+    }
 
     // ✅ Create KPI Measure Row
     const measureDiv = document.createElement('div');
     measureDiv.classList.add('kpi-measure');
 
     measureDiv.innerHTML = `
-      <span class="${changeClass}">${arrow} ${displayValue}</span>
+      <span class="${changeClass}">${arrow} \$2displayValue}</span>
       <span class="comparisonKPIAbsoluteValue">(${formattedComparisonValue})</span> 
-      <span class="comparisonKPIName">vs. ${measure.label}</span>
+      <span class="comparisonKPIName">vs. \$2measure.label}</span>
     `;
 
     kpiContainer.appendChild(measureDiv);
   });
 }
-
 
 
 
