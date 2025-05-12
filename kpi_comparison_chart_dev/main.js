@@ -110,7 +110,7 @@ function calculateKpiValues(chartModel, showVariance) {
       : showVariance
         ? mainKpiValue - value
         : value !== 0
-          ? ((mainKpiValue - value) / Math.abs(value)) * 100
+          ? ((mainKpiValue - value) / (value)) * 100
           : null;
     
       const bps = ((mainKpiValue == null || value == null)
@@ -118,7 +118,7 @@ function calculateKpiValues(chartModel, showVariance) {
       : showVariance
         ? mainKpiValue - value
         : value !== 0
-          ? ((mainKpiValue - value) / Math.abs(value)) * 100
+          ? ((mainKpiValue - value) / (value)) * 100
           : null)*100;
 
       return { label: col.name, value, change,variance,bps };
