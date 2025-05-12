@@ -113,7 +113,13 @@ function calculateKpiValues(chartModel, showVariance) {
           ? ((mainKpiValue - value) / Math.abs(value)) * 100
           : null;
     
-      const bps = (change == null) ? null : change * 100;
+      const bps = ((mainKpiValue == null || value == null)
+      ? null
+      : showVariance
+        ? mainKpiValue - value
+        : value !== 0
+          ? ((mainKpiValue - value) / Math.abs(value)) * 100
+          : null)*100;
 
       return { label: col.name, value, change,variance,bps };
   });
