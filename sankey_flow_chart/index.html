@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>TS Custom Sankey Flow Chart</title>
+        <!-- Apache ECharts (UMD) + numeral, loaded from CDN like the other charts in this repo -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/numeral.js/2.0.6/numeral.min.js"></script>
+        <style>
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+            }
+            #chart {
+                width: 100vw;
+                height: 100vh;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="chart"></div>
+        <script type="module" src="sankey_chart.ts"></script>
+    </body>
+</html>
