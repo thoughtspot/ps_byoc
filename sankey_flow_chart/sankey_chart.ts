@@ -31,10 +31,11 @@ import {
     ChartColumn,
 } from '@thoughtspot/ts-chart-sdk';
 import _ from 'lodash';
-
-// Loaded via CDN <script> tags in index.html
-declare const echarts: any;
-declare const numeral: any;
+// Bundled (NOT loaded from a CDN): ThoughtSpot serves this chart under a
+// `default-src 'self'` CSP, which blocks external <script> tags. Importing here
+// makes ECharts + numeral part of the same-origin bundle so they always load.
+import * as echarts from 'echarts';
+import numeral from 'numeral';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
