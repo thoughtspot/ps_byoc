@@ -63,6 +63,7 @@ interface SankeyLink {
     source: string;
     target: string;
     value: number;
+    secondary: number;
     status?: string;
     tooltipData: Array<{ columnName: string; value: any }>;
 }
@@ -70,12 +71,16 @@ interface SankeyLink {
 interface DataModel {
     nodeOrder: string[];
     nodeStatus: Record<string, string | undefined>;
+    nodeSecondary: Record<string, number>;
     links: SankeyLink[];
     columns: {
         sourceCol?: ChartColumn;
         targetCol?: ChartColumn;
         valueCol?: ChartColumn;
+        secondaryValueCol?: ChartColumn;
         statusCol?: ChartColumn;
+        sourceStatusCol?: ChartColumn;
+        targetStatusCol?: ChartColumn;
     };
 }
 
@@ -258,7 +263,10 @@ function getDataModel(chartModel: ChartModel): DataModel {
     const sourceCol = dimBy('source')[0];
     const targetCol = dimBy('target')[0];
     const valueCol = dimBy('value')[0];
+    const secondaryValueCol = dimBy('secondaryValue')[0];
     const statusCol = dimBy('status')[0];
+    const sourceStatusCol = dimBy('sourceStatus')[0];
+    const targetStatusCol = dimBy('targetStatus')[0];
     const tooltipCols = dimBy('tooltip');
 
     // Guard: chartModel.data can be undefined on an early render — accessing
@@ -275,18 +283,27 @@ function getDataModel(chartModel: ChartModel): DataModel {
     const sIdx = colIdx(sourceCol);
     const tIdx = colIdx(targetCol);
     const vIdx = colIdx(valueCol);
+    const v2Idx = colIdx(secondaryValueCol);
     const stIdx = colIdx(statusCol);
+    const srcStIdx = colIdx(sourceStatusCol);
+    const tgtStIdx = colIdx(targetStatusCol);
 
     const links: SankeyLink[] = [];
     const nodeOrder: string[] = [];
     const seenNode = new Set<string>();
+    // Explicit per-node status from sourceStatus / targetStatus columns.
+    const nodeStatusExplicit: Record<string, string> = {};
+    // Fallback: a single status column applied to the target, then source.
     const nodeStatusAsTarget: Record<string, string> = {};
     const nodeStatusAsSource: Record<string, string> = {};
+    // Secondary measure ($) accumulated per node (in vs out).
+    const nodeSec: Record<string, { in: number; out: number }> = {};
 
     const pushNode = (name: string) => {
         if (!seenNode.has(name)) {
             seenNode.add(name);
             nodeOrder.push(name);
+            nodeSec[name] = { in: 0, out: 0 };
         }
     };
 
@@ -294,34 +311,60 @@ function getDataModel(chartModel: ChartModel): DataModel {
         const source = sIdx >= 0 ? String(row[sIdx] ?? '') : '';
         const target = tIdx >= 0 ? String(row[tIdx] ?? '') : '';
         const value = vIdx >= 0 ? Math.abs(Number(row[vIdx]) || 0) : 0;
+        const secondary = v2Idx >= 0 ? Math.abs(Number(row[v2Idx]) || 0) : 0;
         const status = stIdx >= 0 ? String(row[stIdx] ?? '') : undefined;
+        const srcStatus = srcStIdx >= 0 ? String(row[srcStIdx] ?? '') : undefined;
+        const tgtStatus = tgtStIdx >= 0 ? String(row[tgtStIdx] ?? '') : undefined;
         if (!source || !target) return;
 
         pushNode(source);
         pushNode(target);
+
+        // Explicit per-node status wins (lets each node be coloured on its own).
+        if (srcStatus) nodeStatusExplicit[source] = srcStatus;
+        if (tgtStatus) nodeStatusExplicit[target] = tgtStatus;
+        // Single-status-column fallback.
         if (status) {
             nodeStatusAsTarget[target] = status;
             if (!nodeStatusAsSource[source]) nodeStatusAsSource[source] = status;
         }
+
+        nodeSec[source].out += secondary;
+        nodeSec[target].in += secondary;
 
         const tooltipData = tooltipCols.map((col) => {
             const idx = dataArr.columns.indexOf(col.id);
             return { columnName: col.name, value: idx >= 0 ? row[idx] : 'N/A' };
         });
 
-        links.push({ source, target, value, status, tooltipData });
+        links.push({ source, target, value, secondary, status, tooltipData });
     });
 
     const nodeStatus: Record<string, string | undefined> = {};
+    const nodeSecondary: Record<string, number> = {};
     nodeOrder.forEach((name) => {
-        nodeStatus[name] = nodeStatusAsTarget[name] ?? nodeStatusAsSource[name];
+        nodeStatus[name] =
+            nodeStatusExplicit[name] ??
+            nodeStatusAsTarget[name] ??
+            nodeStatusAsSource[name];
+        // Source nodes report outgoing $, everything else incoming $.
+        nodeSecondary[name] = nodeSec[name].out || nodeSec[name].in;
     });
 
     return {
         nodeOrder,
         nodeStatus,
+        nodeSecondary,
         links,
-        columns: { sourceCol, targetCol, valueCol, statusCol },
+        columns: {
+            sourceCol,
+            targetCol,
+            valueCol,
+            secondaryValueCol,
+            statusCol,
+            sourceStatusCol,
+            targetStatusCol,
+        },
     };
 }
 
@@ -347,6 +390,13 @@ function render(ctx: CustomChartContext) {
         model.columns.valueCol?.id,
         globalFormat,
     );
+    // Secondary measure ($) format for the second line of node labels.
+    const secondaryFormat = getColumnNumberFormat(
+        chartModel,
+        model.columns.secondaryValueCol?.id,
+        vp.secondaryFormat || '$0.[0]a',
+    );
+    const hasSecondary = Boolean(model.columns.secondaryValueCol);
 
     const statusColorMap = buildStatusColorMap(vp);
     const uniqueStatuses = _.uniq(
@@ -372,6 +422,7 @@ function render(ctx: CustomChartContext) {
         source: l.source,
         target: l.target,
         value: l.value,
+        _secondary: l.secondary,
         _status: l.status,
         _tooltipData: l.tooltipData,
         lineStyle: {
@@ -400,6 +451,12 @@ function render(ctx: CustomChartContext) {
                         d.value,
                         valueFormat,
                     )}</b>`;
+                    if (hasSecondary) {
+                        html += `<br/>${model.columns.secondaryValueCol?.name ?? 'Value 2'}: <b>${formatNumber(
+                            d._secondary,
+                            secondaryFormat,
+                        )}</b>`;
+                    }
                     if (d._status) html += `<br/>Status: ${d._status}`;
                     (d._tooltipData ?? []).forEach(
                         (t: { columnName: string; value: any }) => {
@@ -408,8 +465,20 @@ function render(ctx: CustomChartContext) {
                     );
                     return html;
                 }
+                // node tooltip: name + primary total + secondary total + status
                 const status = params.data?._status;
-                return `<b>${params.name}</b>` + (status ? `<br/>Status: ${status}` : '');
+                const total = model.links
+                    .filter((l) => l.source === params.name)
+                    .reduce((s, l) => s + l.value, 0) ||
+                    model.links
+                        .filter((l) => l.target === params.name)
+                        .reduce((s, l) => s + l.value, 0);
+                let html = `<b>${params.name}</b><br/>${formatNumber(total, valueFormat)}`;
+                if (hasSecondary) {
+                    html += ` · ${formatNumber(model.nodeSecondary[params.name] || 0, secondaryFormat)}`;
+                }
+                if (status) html += `<br/>Status: ${status}`;
+                return html;
             },
         },
         series: [
@@ -441,10 +510,16 @@ function render(ctx: CustomChartContext) {
                             .filter((l) => l.target === params.name)
                             .reduce((s, l) => s + l.value, 0);
                         const total = out || inc;
-                        return `{name|${params.name}}\n{val|${formatNumber(
-                            total,
-                            valueFormat,
-                        )}}`;
+                        // Second line: "count · $value" when a secondary measure
+                        // is mapped, otherwise just the primary total.
+                        let line2 = formatNumber(total, valueFormat);
+                        if (hasSecondary) {
+                            line2 += ` · ${formatNumber(
+                                model.nodeSecondary[params.name] || 0,
+                                secondaryFormat,
+                            )}`;
+                        }
+                        return `{name|${params.name}}\n{val|${line2}}`;
                     },
                     rich: {
                         name: { fontSize: 12, fontWeight: 600, color: '#2B2F36' },
@@ -641,8 +716,11 @@ function buildMeasureColumnSettings(chartModel: ChartModel) {
                         { key: 'source', columns: [attributeColumns[0]] },
                         { key: 'target', columns: [attributeColumns[1]] },
                         { key: 'value', columns: [measureColumns[0]] },
-                        { key: 'status', columns: attributeColumns[2] ? [attributeColumns[2]] : [] },
-                        { key: 'tooltip', columns: measureColumns.slice(1) },
+                        { key: 'secondaryValue', columns: measureColumns[1] ? [measureColumns[1]] : [] },
+                        { key: 'sourceStatus', columns: attributeColumns[2] ? [attributeColumns[2]] : [] },
+                        { key: 'targetStatus', columns: attributeColumns[3] ? [attributeColumns[3]] : [] },
+                        { key: 'status', columns: [] },
+                        { key: 'tooltip', columns: measureColumns.slice(2) },
                     ],
                 },
             ];
@@ -686,7 +764,7 @@ function buildMeasureColumnSettings(chartModel: ChartModel) {
                 key: 'sankey',
                 label: 'Sankey Flow Configuration',
                 descriptionText:
-                    'Source and Target define the flow between nodes; Value sizes each flow. Add an optional Status attribute to colour nodes (e.g. On track / Watch / Below target).',
+                    'Source and Target define the flow between nodes; Flow value sizes each flow. Add a Secondary value ($) for a second number on node labels, and Source/Target status attributes to colour each node (On track / Watch / Below target). Multi-stage funnels work automatically — just supply one row per hop.',
                 columnSections: [
                     {
                         key: 'source',
@@ -706,14 +784,35 @@ function buildMeasureColumnSettings(chartModel: ChartModel) {
                     },
                     {
                         key: 'value',
-                        label: 'Flow value (measure)',
+                        label: 'Flow value (sizes links)',
                         allowAttributeColumns: false,
                         allowMeasureColumns: true,
                         maxColumnCount: 1,
                     },
                     {
+                        key: 'secondaryValue',
+                        label: 'Secondary value ($) — optional',
+                        allowAttributeColumns: false,
+                        allowMeasureColumns: true,
+                        maxColumnCount: 1,
+                    },
+                    {
+                        key: 'sourceStatus',
+                        label: 'Source status (colour) — optional',
+                        allowAttributeColumns: true,
+                        allowMeasureColumns: false,
+                        maxColumnCount: 1,
+                    },
+                    {
+                        key: 'targetStatus',
+                        label: 'Target status (colour) — optional',
+                        allowAttributeColumns: true,
+                        allowMeasureColumns: false,
+                        maxColumnCount: 1,
+                    },
+                    {
                         key: 'status',
-                        label: 'Status (colour) — optional',
+                        label: 'Single status (fallback) — optional',
                         allowAttributeColumns: true,
                         allowMeasureColumns: false,
                         maxColumnCount: 1,
