@@ -31,10 +31,11 @@ import {
     ChartColumn,
 } from '@thoughtspot/ts-chart-sdk';
 import _ from 'lodash';
-
-// Loaded via CDN <script> tags in index.html
-declare const echarts: any;
-declare const numeral: any;
+// Bundled (NOT loaded from a CDN): ThoughtSpot serves this chart under a
+// `default-src 'self'` CSP, which blocks external <script> tags. Importing here
+// makes ECharts + numeral part of the same-origin bundle so they always load.
+import * as echarts from 'echarts';
+import numeral from 'numeral';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -255,8 +256,11 @@ function getDataModel(chartModel: ChartModel): DataModel {
     const statusCol = dimBy('status')[0];
     const tooltipCols = dimBy('tooltip');
 
+    // Guard: chartModel.data can be undefined on an early render — accessing
+    // .length directly (without ?.) would throw before the ?? fallback.
+    const dataSets = chartModel.data ?? [];
     const dataArr: DataPointsArray =
-        chartModel.data?.[chartModel.data.length - 1]?.data ?? {
+        (dataSets.length ? dataSets[dataSets.length - 1]?.data : undefined) ?? {
             columns: [],
             dataValue: [],
         };

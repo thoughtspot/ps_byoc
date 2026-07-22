@@ -4,9 +4,8 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>TS Custom Sankey Flow Chart</title>
-        <!-- Apache ECharts (UMD) + numeral, loaded from CDN like the other charts in this repo -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/numeral.js/2.0.6/numeral.min.js"></script>
+        <!-- ECharts + numeral are bundled via imports in sankey_chart.ts (no CDN:
+             ThoughtSpot serves this under a default-src 'self' CSP that blocks external scripts). -->
         <style>
             html,
             body {
