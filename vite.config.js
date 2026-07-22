@@ -10,6 +10,7 @@ export default defineConfig({
         custom_bar_chart: resolve(__dirname, 'custom_bar_chart/index.html'),
         kpi_comparison_chart_dev: resolve(__dirname, 'kpi_comparison_chart_dev/index.html'),
         custom_column_chart: resolve(__dirname, 'custom_column_chart/index.html'),
+        sankey_flow_chart: resolve(__dirname, 'sankey_flow_chart/index.html'),
         main: resolve(__dirname, 'index.html'),
       },
     },
