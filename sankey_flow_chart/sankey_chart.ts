@@ -166,16 +166,21 @@ function buildStatusColorMap(vp: SankeyVisualProps): Record<string, string> {
     return map;
 }
 
-function colorForStatus(
+function colorForNode(
     status: string | undefined,
     statusColorMap: Record<string, string>,
-    fallbackIndex: number,
+    uniqueStatuses: string[],
+    nodeIndex: number,
 ): string {
-    if (status && statusColorMap[String(status).toLowerCase()]) {
-        return statusColorMap[String(status).toLowerCase()];
+    if (status) {
+        const key = String(status).toLowerCase();
+        if (statusColorMap[key]) return statusColorMap[key];
+        const idx = uniqueStatuses.indexOf(status);
+        return FALLBACK_PALETTE[(idx >= 0 ? idx : nodeIndex) % FALLBACK_PALETTE.length];
     }
-    if (status) return FALLBACK_PALETTE[fallbackIndex % FALLBACK_PALETTE.length];
-    return DEFAULT_FALLBACK_COLOR;
+    // No status value for this node — colour by node position so the chart is
+    // never flat grey (this is the default when no Status column is mapped).
+    return FALLBACK_PALETTE[nodeIndex % FALLBACK_PALETTE.length];
 }
 
 /**
@@ -348,13 +353,12 @@ function render(ctx: CustomChartContext) {
         Object.values(model.nodeStatus).filter(Boolean) as string[],
     );
 
-    const nodes = nodeOrder.map((name) => {
+    const nodes = nodeOrder.map((name, i) => {
         const status = model.nodeStatus[name];
-        const fallbackIdx = status ? uniqueStatuses.indexOf(status) : 0;
         return {
             name,
             itemStyle: {
-                color: colorForStatus(status, statusColorMap, fallbackIdx),
+                color: colorForNode(status, statusColorMap, uniqueStatuses, i),
                 borderWidth: 0,
                 borderRadius: 4,
             },
