@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>TS Custom Sankey Flow Chart</title>
+        <!-- ECharts + numeral are bundled via imports in sankey_chart.ts (no CDN:
+             ThoughtSpot serves this under a default-src 'self' CSP that blocks external scripts). -->
+        <style>
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+            }
+            #chart {
+                width: 100vw;
+                height: 100vh;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="chart"></div>
+        <script type="module" src="sankey_chart.ts"></script>
+    </body>
+</html>

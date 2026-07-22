@@ -1,0 +1,23 @@
+{
+    "name": "custom-sankey-flow-chart",
+    "version": "1.0.0",
+    "description": "Status-coloured Sankey / flow chart built with Apache ECharts for ThoughtSpot BYOC.",
+    "main": "dist/index.html",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "author": "Nihal Ahmed",
+    "license": "ISC",
+    "devDependencies": {
+        "vite": "^6.2.0"
+    },
+    "dependencies": {
+        "@thoughtspot/ts-chart-sdk": "^0.0.2-alpha.16",
+        "echarts": "^5.5.1",
+        "lodash": "^4.17.21",
+        "numeral": "^2.0.6"
+    }
+}
